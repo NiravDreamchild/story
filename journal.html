@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="gu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Story Journal</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{
+  --desk:#3d5a50; --desk-d:#22362e;
+  --paper:#fbf8f1; --paper-b:#ece6d8;
+  --ink:#2e3b36; --muted:#6f7f78;
+  --blush:#e3a19b; --blush-d:#b5655f;
+  --sage:#6f9585; --sage-d:#4a6a5d;
+  --tape:rgba(240,199,108,.82); --note:#fbe9a8;
+  --flip:.8s;
+  --loader-bg:#2b4038; --loader-fg:#f3efe6; --loader-accent:#e3a19b; --loader-accent-fg:#3a2422;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:'Hind Vadodara',sans-serif;color:var(--ink);
+  background:radial-gradient(ellipse 85% 70% at 50% 42%,#4d6f63 0%,var(--desk) 52%,var(--desk-d) 100%);
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 20px) 8px calc(env(safe-area-inset-bottom) + 10px)}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.55;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+.stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;touch-action:none}
+.pad{position:relative;width:var(--pw);height:var(--ph);margin-top:10px}
+.pad::after{content:"";position:absolute;left:5%;right:5%;bottom:-30px;height:34px;border-radius:50%;background:rgba(10,20,15,.55);filter:blur(16px);z-index:-1}
+/* thickness of the remaining pages */
+.edge{position:absolute;top:0;bottom:0;background:var(--paper-b);border-radius:0 0 8px 8px;box-shadow:0 1px 0 rgba(0,0,0,.12)}
+.edge.e1{left:3px;right:3px;transform:translateY(4px)}
+.edge.e2{left:6px;right:6px;transform:translateY(8px);background:#e3dccb}
+.edge.e3{left:9px;right:9px;transform:translateY(12px);background:#d9d1be}
+
+.leaves{position:absolute;inset:0;perspective:2400px;perspective-origin:50% 0}
+.leaf{position:absolute;inset:0;transform-origin:50% 0;transform-style:preserve-3d;
+  transition:transform var(--flip) cubic-bezier(.45,.05,.3,1)}
+.leaf.up{transform:rotateX(176deg)}
+/* fade the faces, not the leaf: opacity on the leaf would flatten the 3D flip */
+.leaf .face,.leaf .bk{transition:opacity .15s}
+.leaf.up .face,.leaf.up .bk{opacity:0;transition:opacity .25s calc(var(--flip) - .3s)}
+.face,.bk{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:3px 3px 8px 8px;overflow:hidden}
+.bk{transform:rotateX(180deg);background:linear-gradient(0deg,#efe9dc,#e2d9c6)}
+.face::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;background:linear-gradient(0deg,rgba(30,40,35,.35),transparent 70%)}
+.leaf.moving .face::after{animation:dim var(--flip) ease-in}
+@keyframes dim{60%{opacity:1}100%{opacity:1}}
+
+/* paper + punched holes + spiral */
+.paper{background-color:var(--paper);
+  background-image:radial-gradient(circle,rgba(61,90,80,.17) 1.1px,transparent 1.6px);
+  background-size:20px 20px;background-position:center 12px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.05),inset 0 -40px 50px -40px rgba(120,100,60,.14)}
+.holes{position:absolute;left:0;right:0;top:9px;height:12px;
+  background:radial-gradient(circle at 50% 50%,var(--desk-d) 0 4.2px,transparent 4.9px) center top/22px 12px repeat-x}
+.spiral{position:absolute;left:4px;right:4px;top:-17px;height:38px;z-index:200;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='38'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='1'%3E%3Cstop offset='0' stop-color='%23767b7f'/%3E%3Cstop offset='.45' stop-color='%23f1f3f4'/%3E%3Cstop offset='1' stop-color='%23858b90'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M8.5 32 V9 a3.5 3.5 0 0 1 7 0 V17' fill='none' stroke='url(%23g)' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E") center top/22px 38px repeat-x;
+  filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.4))}
+
+/* story page */
+.inner{position:absolute;inset:34px 22px 20px;display:flex;flex-direction:column}
+.meta{flex:0 0 auto;display:flex;justify-content:space-between;align-items:baseline;font-size:13px;font-weight:600;color:var(--muted)}
+.meta .day{color:var(--blush-d)}
+.body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center}
+.photo{flex:0 0 auto;width:var(--img);height:var(--img);background:#fff;padding:7px;position:relative;margin-top:14px;
+  box-shadow:0 1px 1px rgba(0,0,0,.08),0 10px 20px -8px rgba(40,50,45,.4)}
+.photo img{display:block;width:100%;height:100%;object-fit:cover}
+.photo.tl{transform:rotate(-1.4deg)} .photo.tr{transform:rotate(1.2deg)}
+.tape{position:absolute;width:66px;height:20px;background:var(--tape);top:-8px;left:-18px;transform:rotate(-32deg);
+  box-shadow:0 1px 2px rgba(0,0,0,.08);
+  -webkit-mask:linear-gradient(90deg,transparent 0 2px,#000 2px calc(100% - 2px),transparent 0);mask:linear-gradient(90deg,transparent 0 2px,#000 2px calc(100% - 2px),transparent 0)}
+.tape.r{left:auto;right:-18px;transform:rotate(32deg)}
+.txt{flex:1;min-height:0;width:100%;margin-top:18px;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+.txt p{font-size:var(--fs,18px);line-height:1.72;font-weight:500;text-align:left}
+.wide .inner{inset:40px 36px 28px}
+.wide .body{flex-direction:row;align-items:center;gap:34px}
+.wide .photo{margin-top:0}
+.wide .txt{margin-top:0;height:100%}
+
+/* cover */
+.cover{background-color:var(--sage);
+  background-image:radial-gradient(ellipse at 30% 25%,rgba(255,255,255,.16),transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.3' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15),inset 0 -50px 60px -40px rgba(0,0,0,.25)}
+.cover-in{position:absolute;inset:44px 24px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;text-align:center}
+.cover .photo{width:var(--cimg);height:var(--cimg);margin:0;transform:rotate(-2deg)}
+.stamp{position:absolute;right:-20px;bottom:-20px;width:76px;height:76px;border-radius:50%;background:var(--blush);color:#fff;
+  display:grid;place-items:center;transform:rotate(-10deg);font-weight:600;font-size:13px;line-height:1.05;padding-top:4px;
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.6),0 5px 12px rgba(0,0,0,.25)}
+.stamp b{display:block;font-size:26px;font-weight:700}
+.label{background:var(--paper);padding:14px 22px 10px;border-radius:4px;max-width:94%;
+  box-shadow:0 0 0 3px var(--paper),0 0 0 4.5px var(--blush),0 8px 16px rgba(0,0,0,.22)}
+.label .tag{font-size:13px;font-weight:600;color:var(--muted)}
+.label h1{font-size:var(--title-fs,28px);line-height:1.25;font-weight:700;color:var(--ink);margin-top:2px}
+.hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:13px;color:rgba(255,255,255,.8)}
+
+/* moral */
+.moral-in{position:absolute;inset:44px 24px 26px;display:flex;flex-direction:column;justify-content:center;align-items:center}
+.note{position:relative;width:100%;max-width:520px;background:var(--note);padding:30px 22px 24px;transform:rotate(-1deg);
+  box-shadow:0 12px 22px -10px rgba(80,60,10,.4);background-image:linear-gradient(180deg,rgba(255,255,255,.35),transparent 30%)}
+.note .tape{left:50%;top:-10px;transform:translateX(-50%) rotate(-3deg)}
+.note h2{display:flex;align-items:center;gap:8px;font-size:26px;font-weight:700;color:var(--blush-d);line-height:1}
+.note h2 svg{width:28px;height:28px}
+.note p{font-size:var(--fs,20px);line-height:1.65;font-weight:600;margin-top:12px;color:var(--ink)}
+
+/* end */
+.end-in{position:absolute;inset:44px 24px 26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+.end-word{font-size:40px;font-weight:700;line-height:1.1}
+.end-in svg.heart{width:44px;height:40px;color:var(--blush)}
+.again{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-weight:700;font-size:17px;border:0;cursor:pointer;
+  color:#fff;background:var(--blush-d);padding:11px 24px 9px;border-radius:999px;box-shadow:0 4px 0 #8c4a45;margin-top:6px}
+.again svg{width:18px;height:18px;margin-top:-2px}
+.again:active{transform:translateY(3px);box-shadow:0 1px 0 #8c4a45}
+
+/* controls */
+.bar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:18px;padding-top:16px}
+.nav{width:46px;height:46px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;color:var(--sage-d);
+  background:var(--paper);box-shadow:0 3px 0 #bdb59f,0 6px 12px rgba(0,0,0,.3)}
+.nav:active{transform:translateY(2px);box-shadow:0 1px 0 #bdb59f}
+.nav[disabled]{opacity:.35;pointer-events:none}
+.nav svg{width:22px;height:22px}
+.nav:focus-visible,.again:focus-visible{outline:3px solid var(--blush);outline-offset:3px}
+.count{font-weight:600;color:#f3efe6;font-size:16px;min-width:74px;text-align:center}
+@media (prefers-reduced-motion:reduce){:root{--flip:0s}}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="pad" id="pad">
+    <div class="edge e3"></div><div class="edge e2"></div><div class="edge e1"></div>
+    <div class="leaves" id="leaves"></div>
+    <div class="spiral"></div>
+  </div>
+</div>
+<div class="bar">
+  <button class="nav" id="prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="count" id="count"></div>
+  <button class="nav" id="next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+</div>
+
+<script>
+/*
+ * Where the stories live.
+ *   book.html?type=pregnant&day=29  →  <baseUrl>Pregnant/29/story.json + 1.jpg … 6.jpg
+ *   book.html?type=planning&day=12  →  <baseUrl>Planning/12/story.json + 1.jpg … 6.jpg
+ * baseUrl : "stories/" (inside the app) or "https://your-cdn/stories/"
+ * version : change it after editing JSON on a CDN so phones skip the old cached copy
+ * Folder names are case-sensitive.
+ */
+window.STORY_CONFIG = {
+  "baseUrl": "stories/",
+  "jsonName": "story.json",
+  "imageExt": "jpg",
+  "version": "",
+  "collections": {
+    "planning": { "folder": "Planning", "first": 1,  "last": 84 },
+    "pregnant": { "folder": "Pregnant", "first": 29, "last": 280 }
+  }
+};
+
+/* Gujarati UI labels used by book.html, cards.html and scroll.html */
+window.STORY_UI = window.STORY_UI || {
+  storyTag: "વાર્તા",
+  part: "ભાગ",
+  start: "વાર્તા શરૂ કરીએ",
+  readAgain: "ફરી વાંચો",
+  theEnd: "સમાપ્ત",
+  tapHint: "પાનું ફેરવવા ટેપ કરો",
+  scrollHint: "નીચે સ્ક્રોલ કરો",
+  moralLabel: "બોધ",
+  loading: "વાર્તા ખૂલી રહી છે…",
+  notAvailable: "આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.",
+  networkError: "વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.",
+  retry: "ફરી પ્રયાસ કરો",
+  day: "દિવસ",
+  curlHint: "ખૂણો પકડીને પાનું ફેરવો"
+};
+</script>
+<script>
+/*
+ * Loads the story for ?type=…&day=… and hands it to the page.
+ *   Link:   book.html?type=pregnant&day=29
+ *   App:    openStory("pregnant", 29)          page reads the JSON itself
+ *           openStory("pregnant", 29, json)    app passes the JSON (needed when files are local on the phone)
+ *   Events: window.onStoryEvent = function(name, info){}   "loaded" {collection, day, title} | "error" {code}
+ * story.json: { "title": "…", "moral": "…", "pages": ["para 1", … "para 6"] }  →  para N uses N.jpg
+ */
+(function () {
+  var C = window.STORY_CONFIG || {};
+  var UI = window.STORY_UI || {};
+  var render = null, overlay = null, token = 0, last = null;
+
+  function E(code, detail) { var e = new Error(code); e.code = code; e.detail = detail; return e; }
+
+  function findCollection(type) {
+    if (type == null) return null;
+    var cols = C.collections || {}, t = String(type).trim().toLowerCase();
+    for (var k in cols) {
+      if (k.toLowerCase() === t || String(cols[k].folder).toLowerCase() === t) return cols[k];
+    }
+    return null;
+  }
+
+  function dayFolder(col, day) {
+    var b = C.baseUrl || '';
+    if (b && b.charAt(b.length - 1) !== '/') b += '/';
+    return b + encodeURIComponent(col.folder) + '/' + day + '/';
+  }
+
+  function isAbsolute(p) { return /^([a-z][a-z0-9+.-]*:|\/)/i.test(p); }
+
+  // turn whatever the JSON contains into the shape the templates expect
+  function normalize(data, col, day) {
+    if (!data || typeof data !== 'object') throw E('notready');
+    var dir = col ? dayFolder(col, day) : '';
+    var ext = C.imageExt || 'jpg';
+    var pages = (data.pages || []).map(function (p, i) {
+      if (typeof p === 'string') p = { text: p };
+      p = p || {};
+      var img = p.square || p.image || ((i + 1) + '.' + ext);
+      if (dir && !isAbsolute(img)) img = dir + img;
+      return { square: img, text: String(p.text || '').trim() };
+    });
+    var title = String(data.title || '').trim();
+    var moral = String(data.moral || '').trim();
+    if (!title || !moral || !pages.length || pages.some(function (p) { return !p.text; })) throw E('notready');
+    return {
+      title: title,
+      moral: moral,
+      moralLabel: data.moralLabel || UI.moralLabel || 'બોધ',
+      pages: pages,
+      collection: col ? col.folder : null,
+      day: col ? day : null
+    };
+  }
+
+  // XHR rather than fetch: XHR can also read file:// when the WebView allows it
+  function getJSON(url, cb) {
+    var x = new XMLHttpRequest();
+    try { x.open('GET', url, true); } catch (e) { cb(E('network', url)); return; }
+    x.timeout = 15000;
+    x.onload = function () {
+      var ok = x.status === 200 || (x.status === 0 && x.responseText);
+      if (!ok) { cb(E(x.status === 404 ? 'notfound' : 'network', url + ' (HTTP ' + x.status + ')')); return; }
+      var json;
+      try { json = JSON.parse(x.responseText); } catch (e) { cb(E('badjson', url)); return; }
+      cb(null, json);
+    };
+    x.onerror = x.ontimeout = function () { cb(E('network', url)); };
+    x.send();
+  }
+
+  function preload(src, cb) {
+    var done = false, im = new Image();
+    function go() { if (!done) { done = true; cb(); } }
+    im.onload = im.onerror = go;
+    setTimeout(go, 4000);
+    im.src = src;
+  }
+
+  /* ---------- loading / error screen ---------- */
+  var CSS =
+    '.sl-ov{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;' +
+    'padding:24px;text-align:center;background:var(--loader-bg,#1b1230);color:var(--loader-fg,#fff);font-family:\'Hind Vadodara\',sans-serif;transition:opacity .35s}' +
+    '.sl-ov.sl-hide{opacity:0;pointer-events:none}' +
+    '.sl-spin{width:42px;height:42px;border-radius:50%;border:4px solid currentColor;border-right-color:transparent;opacity:.75;animation:slspin .9s linear infinite}' +
+    '@keyframes slspin{to{transform:rotate(360deg)}}' +
+    '.sl-ico{width:56px;height:56px;opacity:.85}' +
+    '.sl-msg{font-size:18px;font-weight:600;line-height:1.55;max-width:320px}' +
+    '.sl-btn{font-family:inherit;font-weight:700;font-size:16px;border:0;border-radius:999px;padding:10px 24px 8px;cursor:pointer;' +
+    'background:var(--loader-accent,#ffd23f);color:var(--loader-accent-fg,#3a2200)}';
+  var BOOK_ICO = '<svg class="sl-ico" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M28 14c-5-4-12-5-20-4v32c8-1 15 0 20 4 5-4 12-5 20-4V10c-8-1-15 0-20 4z"/><path d="M28 14v32"/></svg>';
+
+  function ensureOverlay() {
+    if (overlay) return overlay;
+    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    overlay = document.createElement('div'); overlay.className = 'sl-ov sl-hide';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) {
+      if (e.target.closest('[data-retry]') && last) open(last[0], last[1], last[2]);
+    });
+    return overlay;
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function showLoading() {
+    var o = ensureOverlay();
+    o.innerHTML = '<div class="sl-spin"></div><div class="sl-msg">' + esc(UI.loading || 'વાર્તા ખૂલી રહી છે…') + '</div>';
+    o.classList.remove('sl-hide');
+  }
+  function hideOverlay() { if (overlay) overlay.classList.add('sl-hide'); }
+  function fail(err) {
+    var code = err.code || 'network';
+    if (window.console) console.warn('[story] ' + code + (err.detail ? ': ' + err.detail : ''));
+    var o = ensureOverlay();
+    var msg = code === 'network' ? (UI.networkError || 'વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.')
+                                 : (UI.notAvailable || 'આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.');
+    o.innerHTML = BOOK_ICO + '<div class="sl-msg">' + esc(msg) + '</div>' +
+      (code === 'network' ? '<button class="sl-btn" data-retry>' + esc(UI.retry || 'ફરી પ્રયાસ કરો') + '</button>' : '');
+    o.classList.remove('sl-hide');
+    notify('error', { code: code });
+  }
+
+  // optional hook for the host app: window.onStoryEvent = function(name, info){…}
+  function notify(name, info) { try { if (typeof window.onStoryEvent === 'function') window.onStoryEvent(name, info || {}); } catch (e) {} }
+
+  function finish(json, col, day, my) {
+    var s;
+    try { s = normalize(json, col, day); } catch (e) { fail(e); return; }
+    preload(s.pages[0].square, function () {
+      if (my !== token) return;              // a newer request took over
+      render(s); hideOverlay();
+      notify('loaded', { collection: s.collection, day: s.day, title: s.title });
+    });
+  }
+
+  function open(type, day, data) {
+    last = [type, day, data];
+    var my = ++token;
+    var col = findCollection(type), ds = String(day == null ? '' : day).trim(), d = parseInt(ds, 10);
+    if (!col) { fail(E('notfound', 'unknown type "' + type + '"')); return; }
+    if (!/^\d+$/.test(ds) || d < col.first || d > col.last) {
+      fail(E('notfound', col.folder + ' day "' + day + '" is outside ' + col.first + '–' + col.last)); return;
+    }
+    showLoading();
+    if (data != null) {
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { fail(E('badjson', 'openStory data')); return; } }
+      finish(data, col, d, my); return;
+    }
+    var url = dayFolder(col, d) + (C.jsonName || 'story.json') + (C.version ? '?v=' + encodeURIComponent(C.version) : '');
+    getJSON(url, function (err, json) {
+      if (my !== token) return;
+      if (err) { fail(err); return; }
+      finish(json, col, d, my);
+    });
+  }
+
+  window.openStory = open;
+  window.StoryLoader = {
+    normalize: normalize,
+    start: function (renderFn) {
+      render = renderFn;
+      // the old window.renderStory(fullObject) still works and clears any loader screen
+      window.renderStory = function (d) { window.__storyRendered = true; hideOverlay(); return renderFn(d); };
+      var q = {};
+      location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+        if (!kv) return; var i = kv.indexOf('=');
+        var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), v = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+        q[k.toLowerCase()] = v;
+      });
+      if (q.type != null || q.day != null) open(q.type, q.day);
+      else if (window.STORY) render(normalize(window.STORY, null, null));
+      else if (!window.__storyRendered) setTimeout(function () {   // no day given and the app hasn't called openStory()
+        if (!token && !window.__storyRendered) fail(E('notfound', 'no ?type=&day= in the link'));
+      }, 1500);
+    }
+  };
+})();
+</script>
+<script>
+(function(){
+  var stage=document.getElementById('stage'), pad=document.getElementById('pad'), leavesEl=document.getElementById('leaves');
+  var countEl=document.getElementById('count'), prevBtn=document.getElementById('prev'), nextBtn=document.getElementById('next');
+  var edges=[].slice.call(pad.querySelectorAll('.edge')).reverse(); // e1, e2, e3
+  var S, UI, leaves=[], cur=0, busy=false, wide=false;
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches, FLIP=reduce?0:800;
+
+  var LEAF='<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22C6 12 12 6 23 5c0 11-6 17-16 17z" fill="currentColor" fill-opacity=".2"/><path d="M6 22L16 12"/></svg>';
+  var HEART='<svg class="heart" viewBox="0 0 44 40"><path d="M22 37C10 28 3 21 3 12.5 3 7 7 3 12 3c4 0 7.5 2.4 10 6 2.5-3.6 6-6 10-6 5 0 9 4 9 9.5C41 21 34 28 22 37z" fill="currentColor"/></svg>';
+  var AGAIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 3v5h5"/></svg>';
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML}
+  function tape(cls){return '<span class="tape'+(cls?' '+cls:'')+'"></span>'}
+
+  function coverHTML(){
+    var stamp=S.day?'<span class="stamp"><span>'+esc(UI.day||'દિવસ')+'<b>'+S.day+'</b></span></span>':'';
+    return '<div class="face cover"><div class="holes"></div><div class="cover-in">'+
+      '<div class="photo">'+tape()+tape('r')+'<img src="'+esc(S.pages[0].square)+'" alt="">'+stamp+'</div>'+
+      '<div class="label"><div class="tag">'+esc(UI.storyTag)+'</div><h1>'+esc(S.title)+'</h1></div>'+
+      '</div><div class="hint">'+esc(UI.tapHint)+'</div></div>';
+  }
+  function pageHTML(i){
+    var p=S.pages[i], n=S.pages.length;
+    return '<div class="face paper"><div class="holes"></div><div class="inner">'+
+      '<div class="meta"><span class="day">'+(S.day?esc(UI.day||'દિવસ')+' '+S.day:esc(UI.storyTag))+'</span><span>'+esc(UI.part)+' '+(i+1)+' / '+n+'</span></div>'+
+      '<div class="body"><div class="photo '+(i%2?'tr':'tl')+'">'+tape(i%2?'r':'')+'<img src="'+esc(p.square)+'" alt=""></div>'+
+      '<div class="txt"><p>'+esc(p.text)+'</p></div></div></div></div>';
+  }
+  function moralHTML(){
+    return '<div class="face paper"><div class="holes"></div><div class="moral-in"><div class="note">'+tape()+
+      '<h2>'+LEAF+esc(S.moralLabel||'બોધ')+'</h2><p>'+esc(S.moral)+'</p></div></div></div>';
+  }
+  function endHTML(){
+    return '<div class="face paper"><div class="holes"></div><div class="end-in">'+HEART+
+      '<div class="end-word">'+esc(UI.theEnd)+'</div>'+
+      '<button class="again" data-again>'+AGAIN+esc(UI.readAgain)+'</button></div></div>';
+  }
+
+  function build(){
+    var html=[coverHTML()];
+    for(var i=0;i<S.pages.length;i++) html.push(pageHTML(i));
+    html.push(moralHTML(), endHTML());
+    leavesEl.innerHTML='';
+    leaves=html.map(function(h){
+      var el=document.createElement('div'); el.className='leaf'; el.innerHTML=h+'<div class="bk"></div>';
+      leavesEl.appendChild(el); return el;
+    });
+  }
+
+  function layout(){
+    var r=stage.getBoundingClientRect(), W=r.width, H=r.height-24, pw, ph;
+    wide=W/H>1.1 && W>=600;
+    if(!wide){ pw=Math.min(W-16,540); ph=Math.min(H,pw*1.75); if(ph<pw*1.3) pw=ph/1.3; }
+    else{ ph=Math.min(H,660); pw=Math.min(W-28,ph*1.6); }
+    pw=Math.floor(pw); ph=Math.floor(ph);
+    document.body.classList.toggle('wide',wide);
+    pad.style.setProperty('--pw',pw+'px'); pad.style.setProperty('--ph',ph+'px');
+    var img=wide?Math.min(ph-68-30,(pw-72)*0.46):Math.min(pw-44-16,(ph-54)*0.46);
+    pad.style.setProperty('--img',Math.floor(img)+'px');
+    pad.style.setProperty('--cimg',Math.floor(wide?Math.min(ph*0.44,pw*0.34):Math.min(pw*0.62,ph*0.4))+'px');
+    pad.style.setProperty('--title-fs',Math.round(Math.max(22,Math.min(34,pw*(wide?0.042:0.075))))+'px');
+    pad.dataset.pw=pw;
+    fit(); apply();
+  }
+
+  // shrink each paragraph until it fits its box
+  function fit(){
+    var pw=+pad.dataset.pw;
+    var base=wide?Math.max(16,Math.min(22,pw*0.024)):Math.max(15,Math.min(20,pw*0.05));
+    leaves.forEach(function(l){
+      var box=l.querySelector('.txt')||l.querySelector('.moral-in'); if(!box) return;
+      var p=box.querySelector('p'), fs=box.classList.contains('moral-in')?base+2:base, g=0;
+      p.style.setProperty('--fs',fs+'px');
+      while(box.scrollHeight>box.clientHeight+1 && fs>12 && g++<40){fs-=.5;p.style.setProperty('--fs',fs+'px')}
+    });
+  }
+
+  function apply(){
+    var N=leaves.length;
+    leaves.forEach(function(l,i){
+      l.classList.toggle('up',i<cur);
+      l.style.zIndex=N-i;
+      l.style.visibility=(i<cur-1||i>cur+1)?'hidden':'';
+    });
+    var remaining=N-1-cur;
+    edges.forEach(function(e,k){e.style.display=remaining>k?'':'none'});
+    var n=S.pages.length, label;
+    if(cur===0) label=UI.storyTag; else if(cur<=n) label=cur+' / '+n; else if(cur===n+1) label=S.moralLabel||'બોધ'; else label=UI.theEnd;
+    countEl.textContent=label;
+    prevBtn.disabled=cur===0; nextBtn.disabled=cur>=N-1;
+  }
+
+  function go(dir){
+    if(busy||!S) return;
+    var t=cur+dir; if(t<0||t>leaves.length-1) return;
+    busy=true;
+    var moving=leaves[dir>0?cur:t];
+    moving.classList.add('moving');
+    cur=t; apply();
+    setTimeout(function(){moving.classList.remove('moving');busy=false},FLIP);
+  }
+  function restart(){ if(busy) return; cur=0; leaves.forEach(function(l){l.style.transition='none'}); apply(); leaves[0].offsetWidth; leaves.forEach(function(l){l.style.transition=''}); }
+
+  // tap: right half next, left half back · swipe up/left next, down/right back
+  var sx=0,sy=0,down=false;
+  stage.addEventListener('pointerdown',function(e){down=true;sx=e.clientX;sy=e.clientY});
+  stage.addEventListener('pointerup',function(e){
+    if(!down) return; down=false;
+    if(e.target.closest('button')) return;
+    var dx=e.clientX-sx, dy=e.clientY-sy, ax=Math.abs(dx), ay=Math.abs(dy);
+    if(Math.max(ax,ay)>40){ if(ay>ax) go(dy<0?1:-1); else go(dx<0?1:-1); return; }
+    if(ax<10&&ay<10){ var r=stage.getBoundingClientRect(); go(e.clientX>r.left+r.width/2?1:-1); }
+  });
+  leavesEl.addEventListener('click',function(e){ if(e.target.closest('[data-again]')) restart(); });
+  prevBtn.onclick=function(){go(-1)}; nextBtn.onclick=function(){go(1)};
+  document.addEventListener('keydown',function(e){ if(e.key==='ArrowRight'||e.key==='ArrowDown')go(1); if(e.key==='ArrowLeft'||e.key==='ArrowUp')go(-1); });
+  var rt; window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(S)layout()},120)});
+
+  window.renderStory=function(data){ if(data) window.STORY=data; S=window.STORY; UI=window.STORY_UI; cur=0; build(); layout(); };
+  StoryLoader.start(window.renderStory);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){if(S)fit()});
+  window.addEventListener('load',function(){if(S)fit()});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="gu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Picture Book</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{
+  --marigold:#f2a93b; --marigold-l:#f8c766;
+  --peacock:#0f6e74; --peacock-d:#0a4c51;
+  --kumkum:#c8372d;
+  --paper:#fffcf5; --ink:#33251b; --muted:#7a6553;
+  --loader-bg:#0a4c51; --loader-fg:#f8c766; --loader-accent:#f2a93b; --loader-accent-fg:#3a2200;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:'Hind Vadodara',sans-serif;color:var(--ink);
+  background:radial-gradient(ellipse 80% 65% at 50% 42%,var(--marigold-l) 0%,var(--marigold) 55%,#d9862a 100%);
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 16px) 10px calc(env(safe-area-inset-bottom) + 10px)}
+/* faint petal pattern on the background */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.13;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='16' cy='16' r='3'/%3E%3Ccircle cx='48' cy='48' r='3'/%3E%3Ccircle cx='16' cy='9' r='2'/%3E%3Ccircle cx='16' cy='23' r='2'/%3E%3Ccircle cx='9' cy='16' r='2'/%3E%3Ccircle cx='23' cy='16' r='2'/%3E%3C/g%3E%3C/svg%3E")}
+
+.stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;touch-action:none}
+.book{position:relative;width:var(--pw);height:var(--ph);z-index:0}
+.book::after{content:"";position:absolute;left:4%;right:2%;bottom:-26px;height:30px;border-radius:50%;background:rgba(90,40,0,.45);filter:blur(16px);z-index:-2}
+/* hardcover board behind the pages + page block edges */
+.board{position:absolute;left:-14px;top:-9px;right:-11px;bottom:-11px;border-radius:6px 12px 12px 6px;z-index:-1;
+  background:linear-gradient(90deg,var(--peacock-d) 0 14px,var(--peacock) 22px);box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.block{position:absolute;inset:0;background:var(--paper);z-index:0;
+  box-shadow:1px 1px 0 #e6dcc6,2px 2px 0 var(--paper),3px 3px 0 #e6dcc6,4px 4px 0 var(--paper),5px 5px 0 #ddd1b6}
+
+.page{position:absolute;inset:0;background:var(--paper);overflow:hidden;visibility:hidden}
+.page::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 16px 0 20px -14px rgba(60,40,20,.32)}
+.shade,.bend,.flapwrap{position:absolute;inset:0;pointer-events:none}
+.shade{z-index:2}.bend{z-index:4}.flapwrap{z-index:5;filter:drop-shadow(-3px 3px 7px rgba(60,30,0,.3))}
+.flap{position:absolute;inset:0}
+
+/* story page */
+.pic{position:absolute;left:0;right:0;top:0;height:var(--pich);overflow:hidden}
+.pic img{display:block;width:100%;height:100%;object-fit:cover}
+.wave{position:absolute;color:var(--paper);display:block}
+.wave.h{left:0;right:0;bottom:-1px;width:100%;height:18px}
+.wave.v{top:0;bottom:0;right:-1px;width:18px;height:100%;display:none}
+.body{position:absolute;left:0;right:0;top:var(--pich);bottom:0;padding:12px 24px 58px;display:flex;flex-direction:column}
+.txt{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:center}
+.txt p{font-size:var(--fs,18px);line-height:1.7;font-weight:500;text-align:left}
+.folio{position:absolute;left:22px;bottom:16px;width:34px;height:34px;border-radius:50%;background:var(--peacock);color:#fff;
+  font-weight:700;font-size:15px;display:grid;place-items:center;padding-top:2px}
+.wide .pic{right:auto;bottom:0;height:auto;width:var(--picw)}
+.wide .wave.h{display:none}.wide .wave.v{display:block}
+.wide .body{top:0;left:var(--picw);padding:40px 44px 64px 34px}
+.wide .folio{left:calc(var(--picw) + 34px)}
+
+/* cover */
+.cover{background-color:var(--peacock);
+  background-image:radial-gradient(circle at 30% 20%,rgba(255,255,255,.14),transparent 55%),
+    radial-gradient(rgba(248,199,102,.16) 1.5px,transparent 2px);background-size:auto,18px 18px}
+.cover::after{box-shadow:inset 16px 0 20px -12px rgba(0,0,0,.45)}
+.cover-in{position:absolute;inset:0;padding:28px 26px 54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;text-align:center}
+.day{font-weight:700;font-size:15px;color:var(--peacock-d);background:var(--marigold-l);padding:4px 16px 2px;border-radius:999px}
+.frame{width:var(--cimg);height:var(--cimg);border-radius:22px;overflow:hidden;box-shadow:0 0 0 7px var(--marigold),0 14px 26px rgba(0,0,0,.35)}
+.frame img{width:100%;height:100%;object-fit:cover;display:block}
+.cover h1{font-size:var(--title-fs,30px);line-height:1.2;font-weight:700;color:var(--marigold-l);max-width:100%}
+.tag{font-size:14px;font-weight:600;color:rgba(255,255,255,.75);margin-bottom:-12px}
+.hint{position:absolute;right:46px;bottom:18px;font-size:13px;color:rgba(255,255,255,.85);display:flex;align-items:center;gap:6px}
+.hint svg{width:16px;height:16px}
+
+/* moral */
+.moral{background:var(--peacock);color:#fff}
+.moral::after{box-shadow:inset 16px 0 20px -12px rgba(0,0,0,.4)}
+.moral-in{position:absolute;inset:30px 28px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+.flower{width:68px;height:68px}
+.moral h2{font-size:32px;font-weight:700;color:var(--marigold-l);line-height:1.1}
+.moral p{font-size:var(--fs,20px);line-height:1.65;font-weight:600;max-width:480px;margin-top:6px}
+
+/* end */
+.end-in{position:absolute;inset:30px 24px 40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+.end-word{font-size:42px;font-weight:700;color:var(--kumkum);line-height:1.1}
+.flowers{display:flex;gap:10px}.flowers svg{width:26px;height:26px}
+.again{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-weight:700;font-size:17px;border:0;cursor:pointer;
+  color:#fff;background:var(--peacock);padding:11px 24px 9px;border-radius:999px;box-shadow:0 4px 0 var(--peacock-d)}
+.again svg{width:18px;height:18px;margin-top:-2px}
+.again:active{transform:translateY(3px);box-shadow:0 1px 0 var(--peacock-d)}
+
+/* controls */
+.bar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:18px;padding-top:18px}
+.nav{width:46px;height:46px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;color:#fff;
+  background:var(--peacock);box-shadow:0 3px 0 var(--peacock-d),0 6px 12px rgba(90,40,0,.3)}
+.nav:active{transform:translateY(2px);box-shadow:0 1px 0 var(--peacock-d)}
+.nav[disabled]{opacity:.35;pointer-events:none}
+.nav svg{width:22px;height:22px}
+.nav:focus-visible,.again:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.count{font-weight:700;color:var(--peacock-d);font-size:16px;min-width:74px;text-align:center}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="book" id="book">
+    <div class="board"></div><div class="block"></div>
+    <div id="pages"></div>
+    <div class="shade" id="shade"></div>
+    <div class="bend" id="bend"></div>
+    <div class="flapwrap"><div class="flap" id="flap"></div></div>
+  </div>
+</div>
+<div class="bar">
+  <button class="nav" id="prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="count" id="count"></div>
+  <button class="nav" id="next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+</div>
+
+<script>
+/*
+ * Where the stories live.
+ *   book.html?type=pregnant&day=29  →  <baseUrl>Pregnant/29/story.json + 1.jpg … 6.jpg
+ *   book.html?type=planning&day=12  →  <baseUrl>Planning/12/story.json + 1.jpg … 6.jpg
+ * baseUrl : "stories/" (inside the app) or "https://your-cdn/stories/"
+ * version : change it after editing JSON on a CDN so phones skip the old cached copy
+ * Folder names are case-sensitive.
+ */
+window.STORY_CONFIG = {
+  "baseUrl": "stories/",
+  "jsonName": "story.json",
+  "imageExt": "jpg",
+  "version": "",
+  "collections": {
+    "planning": { "folder": "Planning", "first": 1,  "last": 84 },
+    "pregnant": { "folder": "Pregnant", "first": 29, "last": 280 }
+  }
+};
+
+/* Gujarati UI labels used by book.html, cards.html and scroll.html */
+window.STORY_UI = window.STORY_UI || {
+  storyTag: "વાર્તા",
+  part: "ભાગ",
+  start: "વાર્તા શરૂ કરીએ",
+  readAgain: "ફરી વાંચો",
+  theEnd: "સમાપ્ત",
+  tapHint: "પાનું ફેરવવા ટેપ કરો",
+  scrollHint: "નીચે સ્ક્રોલ કરો",
+  moralLabel: "બોધ",
+  loading: "વાર્તા ખૂલી રહી છે…",
+  notAvailable: "આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.",
+  networkError: "વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.",
+  retry: "ફરી પ્રયાસ કરો",
+  day: "દિવસ",
+  curlHint: "ખૂણો પકડીને પાનું ફેરવો"
+};
+</script>
+<script>
+/*
+ * Loads the story for ?type=…&day=… and hands it to the page.
+ *   Link:   book.html?type=pregnant&day=29
+ *   App:    openStory("pregnant", 29)          page reads the JSON itself
+ *           openStory("pregnant", 29, json)    app passes the JSON (needed when files are local on the phone)
+ *   Events: window.onStoryEvent = function(name, info){}   "loaded" {collection, day, title} | "error" {code}
+ * story.json: { "title": "…", "moral": "…", "pages": ["para 1", … "para 6"] }  →  para N uses N.jpg
+ */
+(function () {
+  var C = window.STORY_CONFIG || {};
+  var UI = window.STORY_UI || {};
+  var render = null, overlay = null, token = 0, last = null;
+
+  function E(code, detail) { var e = new Error(code); e.code = code; e.detail = detail; return e; }
+
+  function findCollection(type) {
+    if (type == null) return null;
+    var cols = C.collections || {}, t = String(type).trim().toLowerCase();
+    for (var k in cols) {
+      if (k.toLowerCase() === t || String(cols[k].folder).toLowerCase() === t) return cols[k];
+    }
+    return null;
+  }
+
+  function dayFolder(col, day) {
+    var b = C.baseUrl || '';
+    if (b && b.charAt(b.length - 1) !== '/') b += '/';
+    return b + encodeURIComponent(col.folder) + '/' + day + '/';
+  }
+
+  function isAbsolute(p) { return /^([a-z][a-z0-9+.-]*:|\/)/i.test(p); }
+
+  // turn whatever the JSON contains into the shape the templates expect
+  function normalize(data, col, day) {
+    if (!data || typeof data !== 'object') throw E('notready');
+    var dir = col ? dayFolder(col, day) : '';
+    var ext = C.imageExt || 'jpg';
+    var pages = (data.pages || []).map(function (p, i) {
+      if (typeof p === 'string') p = { text: p };
+      p = p || {};
+      var img = p.square || p.image || ((i + 1) + '.' + ext);
+      if (dir && !isAbsolute(img)) img = dir + img;
+      return { square: img, text: String(p.text || '').trim() };
+    });
+    var title = String(data.title || '').trim();
+    var moral = String(data.moral || '').trim();
+    if (!title || !moral || !pages.length || pages.some(function (p) { return !p.text; })) throw E('notready');
+    return {
+      title: title,
+      moral: moral,
+      moralLabel: data.moralLabel || UI.moralLabel || 'બોધ',
+      pages: pages,
+      collection: col ? col.folder : null,
+      day: col ? day : null
+    };
+  }
+
+  // XHR rather than fetch: XHR can also read file:// when the WebView allows it
+  function getJSON(url, cb) {
+    var x = new XMLHttpRequest();
+    try { x.open('GET', url, true); } catch (e) { cb(E('network', url)); return; }
+    x.timeout = 15000;
+    x.onload = function () {
+      var ok = x.status === 200 || (x.status === 0 && x.responseText);
+      if (!ok) { cb(E(x.status === 404 ? 'notfound' : 'network', url + ' (HTTP ' + x.status + ')')); return; }
+      var json;
+      try { json = JSON.parse(x.responseText); } catch (e) { cb(E('badjson', url)); return; }
+      cb(null, json);
+    };
+    x.onerror = x.ontimeout = function () { cb(E('network', url)); };
+    x.send();
+  }
+
+  function preload(src, cb) {
+    var done = false, im = new Image();
+    function go() { if (!done) { done = true; cb(); } }
+    im.onload = im.onerror = go;
+    setTimeout(go, 4000);
+    im.src = src;
+  }
+
+  /* ---------- loading / error screen ---------- */
+  var CSS =
+    '.sl-ov{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;' +
+    'padding:24px;text-align:center;background:var(--loader-bg,#1b1230);color:var(--loader-fg,#fff);font-family:\'Hind Vadodara\',sans-serif;transition:opacity .35s}' +
+    '.sl-ov.sl-hide{opacity:0;pointer-events:none}' +
+    '.sl-spin{width:42px;height:42px;border-radius:50%;border:4px solid currentColor;border-right-color:transparent;opacity:.75;animation:slspin .9s linear infinite}' +
+    '@keyframes slspin{to{transform:rotate(360deg)}}' +
+    '.sl-ico{width:56px;height:56px;opacity:.85}' +
+    '.sl-msg{font-size:18px;font-weight:600;line-height:1.55;max-width:320px}' +
+    '.sl-btn{font-family:inherit;font-weight:700;font-size:16px;border:0;border-radius:999px;padding:10px 24px 8px;cursor:pointer;' +
+    'background:var(--loader-accent,#ffd23f);color:var(--loader-accent-fg,#3a2200)}';
+  var BOOK_ICO = '<svg class="sl-ico" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M28 14c-5-4-12-5-20-4v32c8-1 15 0 20 4 5-4 12-5 20-4V10c-8-1-15 0-20 4z"/><path d="M28 14v32"/></svg>';
+
+  function ensureOverlay() {
+    if (overlay) return overlay;
+    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    overlay = document.createElement('div'); overlay.className = 'sl-ov sl-hide';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) {
+      if (e.target.closest('[data-retry]') && last) open(last[0], last[1], last[2]);
+    });
+    return overlay;
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function showLoading() {
+    var o = ensureOverlay();
+    o.innerHTML = '<div class="sl-spin"></div><div class="sl-msg">' + esc(UI.loading || 'વાર્તા ખૂલી રહી છે…') + '</div>';
+    o.classList.remove('sl-hide');
+  }
+  function hideOverlay() { if (overlay) overlay.classList.add('sl-hide'); }
+  function fail(err) {
+    var code = err.code || 'network';
+    if (window.console) console.warn('[story] ' + code + (err.detail ? ': ' + err.detail : ''));
+    var o = ensureOverlay();
+    var msg = code === 'network' ? (UI.networkError || 'વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.')
+                                 : (UI.notAvailable || 'આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.');
+    o.innerHTML = BOOK_ICO + '<div class="sl-msg">' + esc(msg) + '</div>' +
+      (code === 'network' ? '<button class="sl-btn" data-retry>' + esc(UI.retry || 'ફરી પ્રયાસ કરો') + '</button>' : '');
+    o.classList.remove('sl-hide');
+    notify('error', { code: code });
+  }
+
+  // optional hook for the host app: window.onStoryEvent = function(name, info){…}
+  function notify(name, info) { try { if (typeof window.onStoryEvent === 'function') window.onStoryEvent(name, info || {}); } catch (e) {} }
+
+  function finish(json, col, day, my) {
+    var s;
+    try { s = normalize(json, col, day); } catch (e) { fail(e); return; }
+    preload(s.pages[0].square, function () {
+      if (my !== token) return;              // a newer request took over
+      render(s); hideOverlay();
+      notify('loaded', { collection: s.collection, day: s.day, title: s.title });
+    });
+  }
+
+  function open(type, day, data) {
+    last = [type, day, data];
+    var my = ++token;
+    var col = findCollection(type), ds = String(day == null ? '' : day).trim(), d = parseInt(ds, 10);
+    if (!col) { fail(E('notfound', 'unknown type "' + type + '"')); return; }
+    if (!/^\d+$/.test(ds) || d < col.first || d > col.last) {
+      fail(E('notfound', col.folder + ' day "' + day + '" is outside ' + col.first + '–' + col.last)); return;
+    }
+    showLoading();
+    if (data != null) {
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { fail(E('badjson', 'openStory data')); return; } }
+      finish(data, col, d, my); return;
+    }
+    var url = dayFolder(col, d) + (C.jsonName || 'story.json') + (C.version ? '?v=' + encodeURIComponent(C.version) : '');
+    getJSON(url, function (err, json) {
+      if (my !== token) return;
+      if (err) { fail(err); return; }
+      finish(json, col, d, my);
+    });
+  }
+
+  window.openStory = open;
+  window.StoryLoader = {
+    normalize: normalize,
+    start: function (renderFn) {
+      render = renderFn;
+      // the old window.renderStory(fullObject) still works and clears any loader screen
+      window.renderStory = function (d) { window.__storyRendered = true; hideOverlay(); return renderFn(d); };
+      var q = {};
+      location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+        if (!kv) return; var i = kv.indexOf('=');
+        var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), v = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+        q[k.toLowerCase()] = v;
+      });
+      if (q.type != null || q.day != null) open(q.type, q.day);
+      else if (window.STORY) render(normalize(window.STORY, null, null));
+      else if (!window.__storyRendered) setTimeout(function () {   // no day given and the app hasn't called openStory()
+        if (!token && !window.__storyRendered) fail(E('notfound', 'no ?type=&day= in the link'));
+      }, 1500);
+    }
+  };
+})();
+</script>
+<script>
+(function(){
+  var stage=document.getElementById('stage'), book=document.getElementById('book'), pagesEl=document.getElementById('pages');
+  var shade=document.getElementById('shade'), bend=document.getElementById('bend'), flap=document.getElementById('flap');
+  var countEl=document.getElementById('count'), prevBtn=document.getElementById('prev'), nextBtn=document.getElementById('next');
+  var S, UI, pages=[], cur=0, busy=false, wide=false, W=0, H=0;
+  var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var TURN=reduce?0:750;
+
+  var WAVE_H='<svg class="wave h" viewBox="0 0 400 18" preserveAspectRatio="none"><path d="M0 10 Q25 0 50 8 T100 8 T150 8 T200 8 T250 8 T300 8 T350 8 T400 8 V18 H0z" fill="currentColor"/></svg>';
+  var WAVE_V='<svg class="wave v" viewBox="0 0 18 400" preserveAspectRatio="none"><path d="M10 0 Q0 25 8 50 T8 100 T8 150 T8 200 T8 250 T8 300 T8 350 T8 400 H18 V0z" fill="currentColor"/></svg>';
+  function FLOWER(c1,c2){var p='';for(var k=0;k<8;k++)p+='<ellipse cx="34" cy="16" rx="8" ry="14" transform="rotate('+(k*45)+' 34 34)" fill="'+c1+'"/>';
+    return '<svg viewBox="0 0 68 68" class="flower">'+p+'<circle cx="34" cy="34" r="11" fill="'+c2+'"/></svg>';}
+  var AGAIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 3v5h5"/></svg>';
+  var CORNER='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5L5 19M5 11v8h8"/></svg>';
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML}
+
+  function build(){
+    var n=S.pages.length, h=[];
+    h.push('<div class="page cover" data-back="cover"><div class="cover-in">'+
+      (S.day?'<div class="day">'+esc(UI.day||'દિવસ')+' '+S.day+'</div>':'')+
+      '<div class="frame"><img src="'+esc(S.pages[0].square)+'" alt=""></div>'+
+      '<div class="tag">'+esc(UI.storyTag)+'</div><h1>'+esc(S.title)+'</h1></div>'+
+      '<div class="hint">'+esc(UI.curlHint||UI.tapHint)+CORNER+'</div></div>');
+    S.pages.forEach(function(p,i){
+      h.push('<div class="page"><div class="pic"><img src="'+esc(p.square)+'" alt="">'+WAVE_H+WAVE_V+'</div>'+
+        '<div class="body"><div class="txt"><p>'+esc(p.text)+'</p></div></div><div class="folio">'+(i+1)+'</div></div>');
+    });
+    h.push('<div class="page moral"><div class="moral-in">'+FLOWER('#f2a93b','#c8372d')+
+      '<h2>'+esc(S.moralLabel||'બોધ')+'</h2><p>'+esc(S.moral)+'</p></div></div>');
+    h.push('<div class="page end"><div class="end-in"><div class="end-word">'+esc(UI.theEnd)+'</div>'+
+      '<div class="flowers">'+FLOWER('#f2a93b','#c8372d')+FLOWER('#c8372d','#f2a93b')+FLOWER('#f2a93b','#c8372d')+'</div>'+
+      '<button class="again" data-again>'+AGAIN+esc(UI.readAgain)+'</button></div></div>');
+    pagesEl.innerHTML=h.join('');
+    pages=[].slice.call(pagesEl.children);
+  }
+
+  function layout(){
+    var r=stage.getBoundingClientRect(), AW=r.width-26, AH=r.height-22, pw, ph;
+    wide=AW/AH>1.1 && AW>=600;
+    if(!wide){ pw=Math.min(AW,540); ph=Math.min(AH,pw*1.62); if(ph<pw*1.3) pw=ph/1.3; }
+    else{ ph=Math.min(AH,660); pw=Math.min(AW,ph*1.58); }
+    W=Math.floor(pw); H=Math.floor(ph);
+    document.body.classList.toggle('wide',wide);
+    book.style.setProperty('--pw',W+'px'); book.style.setProperty('--ph',H+'px');
+    book.style.setProperty('--pich',Math.floor(Math.min(W,H*0.5))+'px');
+    book.style.setProperty('--picw',Math.floor(Math.min(H,W*0.5))+'px');
+    book.style.setProperty('--cimg',Math.floor(wide?Math.min(H*0.5,W*0.34):Math.min(W*0.66,H*0.42))+'px');
+    book.style.setProperty('--title-fs',Math.round(Math.max(24,Math.min(38,W*(wide?0.045:0.08))))+'px');
+    fit(); idle();
+  }
+
+  function fit(){
+    var base=wide?Math.max(16,Math.min(22,W*0.024)):Math.max(15,Math.min(20,W*0.05));
+    pages.forEach(function(pg){
+      var box=pg.querySelector('.txt')||pg.querySelector('.moral-in'); if(!box) return;
+      var p=box.querySelector('p'), fs=box.classList.contains('moral-in')?base+2:base, g=0;
+      p.style.setProperty('--fs',fs+'px');
+      while(box.scrollHeight>box.clientHeight+1 && fs>12 && g++<40){fs-=.5;p.style.setProperty('--fs',fs+'px')}
+    });
+  }
+
+  /* ---------- page curl geometry ----------
+     The bottom-right corner C=(W,H) is folded onto point P. The fold line is the
+     perpendicular bisector of C–P. The page keeps the part on the spine side,
+     the cut-off part is mirrored across the fold line to form the curled flap. */
+  function polygon(pts){
+    if(pts.length<3) return 'polygon(0 0,0 0,0 0)';
+    return 'polygon('+pts.map(function(p){return p[0].toFixed(1)+'px '+p[1].toFixed(1)+'px'}).join(',')+')';
+  }
+  function clip(el,v){el.style.clipPath=v;el.style.webkitClipPath=v}
+  function half(pts,f){ // keep points where f<=0 (Sutherland–Hodgman, one edge)
+    var out=[];
+    for(var i=0;i<pts.length;i++){
+      var a=pts[i], b=pts[(i+1)%pts.length], fa=f(a), fb=f(b);
+      if(fa<=0) out.push(a);
+      if((fa<0&&fb>0)||(fa>0&&fb<0)){var t=fa/(fa-fb);out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t])}
+    }
+    return out;
+  }
+  // linear-gradient whose stops are measured in px from point `from` along direction (dx,dy)
+  function grad(dx,dy,from,stops){
+    var ang=Math.atan2(dx,-dy)*180/Math.PI, L=Math.abs(W*dx)+Math.abs(H*dy);
+    var sx=W/2-dx*L/2, sy=H/2-dy*L/2, f0=(from[0]-sx)*dx+(from[1]-sy)*dy;
+    return 'linear-gradient('+ang.toFixed(2)+'deg,'+stops.map(function(s){return s[1]+' '+(f0+s[0]).toFixed(1)+'px'}).join(',')+')';
+  }
+  function curl(turn,P){
+    var cx=W,cy=H,dx=cx-P[0],dy=cy-P[1],len=Math.hypot(dx,dy);
+    if(len<0.5){ flat(turn); return; }
+    var nx=dx/len, ny=dy/len, mx=(cx+P[0])/2, my=(cy+P[1])/2;
+    var f=function(p){return (p[0]-mx)*nx+(p[1]-my)*ny};
+    var rect=[[0,0],[W,0],[W,H],[0,H]];
+    var keep=half(rect,f), cut=half(rect,function(p){return -f(p)});
+    var mirror=cut.map(function(p){var d=f(p);return [p[0]-2*d*nx,p[1]-2*d*ny]});
+    var M=[mx,my], depth=len/2;
+    clip(turn,polygon(keep)); clip(bend,polygon(keep)); clip(flap,polygon(mirror)); clip(shade,polygon(cut));
+    var back=turn.dataset.back==='cover'
+      ? [[0,'#0b5a5f'],[depth*.35,'#1a8a90'],[depth*.8,'#11747a'],[depth,'#0d6368']]
+      : [[0,'#d9cfbb'],[depth*.35,'#fffaf0'],[depth*.8,'#f4ecdb'],[depth,'#e8dec8']];
+    flap.style.background=grad(-nx,-ny,M,back);
+    bend.style.background=grad(-nx,-ny,M,[[0,'rgba(60,35,10,.3)'],[Math.min(70,depth*.7),'rgba(60,35,10,0)']]);
+    shade.style.background=grad(nx,ny,M,[[0,'rgba(40,20,0,.45)'],[Math.min(90,depth*.9)+8,'rgba(40,20,0,0)']]);
+  }
+  function flat(turn){ if(turn) clip(turn,''); clip(bend,polygon([])); clip(flap,polygon([])); clip(shade,polygon([])); }
+
+  // fold position for progress p (0 = resting corner fold, 1 = page fully turned)
+  function P(p,yo){
+    var rest=cur<pages.length-1?[W-30,H-26]:[W,H];
+    var x=rest[0]+(-1.06*W-rest[0])*p;
+    var y=rest[1]+(H-rest[1])*p-H*0.2*Math.sin(Math.PI*p)+(yo||0);
+    return [x,y];
+  }
+
+  var turnEl=null, underEl=null;
+  function stack(turnIdx,underIdx){
+    pages.forEach(function(pg,i){
+      var on=i===turnIdx||i===underIdx;
+      pg.style.visibility=on?'visible':'hidden';
+      pg.style.zIndex=i===turnIdx?3:1;
+      if(i!==turnIdx) clip(pg,'');
+    });
+    turnEl=pages[turnIdx]; underEl=underIdx!=null?pages[underIdx]:null;
+  }
+  function idle(){
+    if(!S) return;
+    stack(cur,cur+1<pages.length?cur+1:null);
+    if(cur<pages.length-1) curl(turnEl,P(0)); else flat(turnEl);
+    var n=S.pages.length, label;
+    if(cur===0) label=UI.storyTag; else if(cur<=n) label=cur+' / '+n; else if(cur===n+1) label=S.moralLabel||'બોધ'; else label=UI.theEnd;
+    countEl.textContent=label;
+    prevBtn.disabled=cur===0; nextBtn.disabled=cur>=pages.length-1;
+  }
+
+  function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+  function animate(p0,p1,yo,dur,done){
+    if(!dur){ curl(turnEl,P(p1)); done(); return; }
+    var t0=performance.now();
+    requestAnimationFrame(function tick(now){
+      var t=Math.min(1,(now-t0)/dur), k=ease(t);
+      curl(turnEl,P(p0+(p1-p0)*k,yo*(1-k)));
+      if(t<1) requestAnimationFrame(tick); else done();
+    });
+  }
+  function forward(fromP,yo){ // turn page cur over to reveal cur+1
+    busy=true;
+    animate(fromP,1,yo||0,TURN*(1-fromP)+120,function(){cur++;busy=false;idle()});
+  }
+  function backward(fromP,yo){ // bring page cur-1 back on top
+    busy=true;
+    if(fromP==null){ stack(cur-1,cur); fromP=1; }
+    animate(fromP,0,yo||0,TURN*fromP+120,function(){cur--;busy=false;idle()});
+  }
+  function go(dir){
+    if(busy||!S) return;
+    if(dir>0&&cur<pages.length-1) forward(0);
+    else if(dir<0&&cur>0) backward(null);
+  }
+
+  // drag the page (or tap: right half next, left half back)
+  var drag=null;
+  stage.addEventListener('pointerdown',function(e){
+    if(busy||!S||e.target.closest('button')) return;
+    drag={x:e.clientX,y:e.clientY,t:Date.now(),mode:null,p:0,yo:0};
+    try{stage.setPointerCapture(e.pointerId)}catch(_){}
+  });
+  stage.addEventListener('pointermove',function(e){
+    if(!drag) return;
+    var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+    if(!drag.mode){
+      if(Math.hypot(dx,dy)<10) return;
+      if(dx<0&&cur<pages.length-1) drag.mode='f';
+      else if(dx>0&&cur>0){ drag.mode='b'; stack(cur-1,cur); }
+      else { drag.mode='none'; return; }
+    }
+    if(drag.mode==='none') return;
+    var k=Math.max(0,Math.min(1,(drag.mode==='f'?-dx:dx)/(W*0.95)));
+    drag.p=drag.mode==='f'?k:1-k;
+    drag.yo=Math.max(-H*0.25,Math.min(H*0.08,dy*0.5))*Math.sin(Math.PI*drag.p);
+    curl(turnEl,P(drag.p,drag.yo));
+  });
+  function end(e){
+    if(!drag) return;
+    var d=drag; drag=null;
+    var dx=e.clientX-d.x, v=dx/Math.max(1,Date.now()-d.t);
+    if(!d.mode){
+      if(e.type==='pointercancel') return;
+      var r=book.getBoundingClientRect(); go(e.clientX>r.left+r.width/2?1:-1); return;
+    }
+    if(d.mode==='f'){
+      if(d.p>0.25||v<-0.45) forward(d.p,d.yo);
+      else { busy=true; animate(d.p,0,d.yo,260,function(){busy=false;idle()}); }
+    }else if(d.mode==='b'){
+      if(d.p<0.75||v>0.45) backward(d.p,d.yo);
+      else { busy=true; animate(d.p,1,d.yo,260,function(){busy=false;idle()}); }
+    }
+  }
+  stage.addEventListener('pointerup',end);
+  stage.addEventListener('pointercancel',end);
+  pagesEl.addEventListener('click',function(e){ if(e.target.closest('[data-again]')&&!busy){cur=0;idle()} });
+  prevBtn.onclick=function(){go(-1)}; nextBtn.onclick=function(){go(1)};
+  document.addEventListener('keydown',function(e){ if(e.key==='ArrowRight')go(1); if(e.key==='ArrowLeft')go(-1); });
+  var rt; window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(S&&!busy)layout()},120)});
+
+  window.renderStory=function(data){ if(data) window.STORY=data; S=window.STORY; UI=window.STORY_UI; cur=0; build(); layout(); };
+  StoryLoader.start(window.renderStory);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){if(S)fit()});
+  window.addEventListener('load',function(){if(S)fit()});
+})();
+</script>
+</body>
+</html>
