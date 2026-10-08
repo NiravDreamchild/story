@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="gu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Story Book</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{
+  --desk-1:#5b3820; --desk-2:#2d1a0d; --desk-3:#170c05;
+  --paper:#f6ead0; --paper-edge:#e6d2a8;
+  --ink:#3b2716; --ink-soft:#6e4e2e; --rule:rgba(122,82,40,.38);
+  --red:#9b2c1c; --gold:#d6a645; --gold-deep:#a9772a;
+  --leather:#6d1c15; --leather-dark:#3f0e0a;
+  --turn:.85s;
+  --loader-bg:#2d1a0d; --loader-fg:#f1d79c; --loader-accent:#d6a645; --loader-accent-fg:#3b2207;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{
+  font-family:'Hind Vadodara',sans-serif;color:var(--ink);
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 42%, var(--desk-1) 0%, var(--desk-2) 55%, var(--desk-3) 100%);
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+  display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 14px) 10px calc(env(safe-area-inset-bottom) + 10px);
+}
+/* faint wood grain on the desk */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.22;
+  background:repeating-linear-gradient(92deg,rgba(0,0,0,.25) 0 2px,transparent 2px 9px,rgba(255,220,170,.06) 9px 11px,transparent 11px 23px);}
+
+.stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:pan-y}
+.shift{transition:transform var(--turn) cubic-bezier(.4,0,.2,1)}
+.book{position:relative;perspective:2400px}
+.book::after{ /* shadow cast on the desk */
+  content:"";position:absolute;left:4%;right:4%;bottom:-18px;height:30px;border-radius:50%;
+  background:rgba(0,0,0,.55);filter:blur(16px);z-index:-1}
+.spread .book::after{left:calc(var(--pw) * .1);right:calc(var(--pw) * .1)}
+
+.sheet{position:absolute;top:0;left:0;width:var(--pw);height:var(--ph);
+  transform-style:preserve-3d;transform-origin:left center;
+  transition:transform var(--turn) cubic-bezier(.645,.045,.355,1), opacity .25s}
+.spread .sheet{left:var(--pw)}
+.sheet.flipped{transform:rotateY(-180deg)}
+.single .sheet.flipped{opacity:0;transition:transform var(--turn) cubic-bezier(.645,.045,.355,1), opacity .3s calc(var(--turn) - .3s)}
+
+.face{position:absolute;inset:0;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:2px 6px 6px 2px}
+.face.back{transform:rotateY(180deg);border-radius:6px 2px 2px 6px}
+.face::after{ /* shading while a page turns */
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;
+  background:linear-gradient(to left,rgba(40,20,5,.45),rgba(40,20,5,.08) 55%,transparent)}
+.face.back::after{background:linear-gradient(to right,rgba(40,20,5,.45),rgba(40,20,5,.08) 55%,transparent)}
+.turning .face::after{animation:shade var(--turn) ease-in-out}
+@keyframes shade{0%,100%{opacity:0}50%{opacity:1}}
+
+/* ---------- paper ---------- */
+.paper{background-color:var(--paper);
+  background-image:
+    radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(150,100,40,.20) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .3 0 0 0 0 .12 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+/* gutter shadow: right-hand pages have the spine on their left */
+.paper.right{box-shadow:inset 18px 0 22px -14px rgba(90,55,20,.45), inset -1px 0 0 var(--paper-edge)}
+.paper.left{box-shadow:inset -18px 0 22px -14px rgba(90,55,20,.45), inset 1px 0 0 var(--paper-edge)}
+.paper.blank{background-color:#efe1c3}
+
+.frame{position:absolute;inset:var(--m);border:1.5px solid var(--rule);outline:1px solid var(--rule);outline-offset:-5px;border-radius:3px}
+.corner{position:absolute;width:26px;height:26px;color:var(--gold-deep);opacity:.85}
+.corner.tl{top:calc(var(--m) - 7px);left:calc(var(--m) - 7px)}
+.corner.tr{top:calc(var(--m) - 7px);right:calc(var(--m) - 7px);transform:scaleX(-1)}
+.corner.bl{bottom:calc(var(--m) - 7px);left:calc(var(--m) - 7px);transform:scaleY(-1)}
+.corner.br{bottom:calc(var(--m) - 7px);right:calc(var(--m) - 7px);transform:scale(-1,-1)}
+
+.content{position:absolute;inset:calc(var(--m) + 14px);display:flex;flex-direction:column;align-items:center}
+.pic{width:100%;flex:0 0 auto;aspect-ratio:var(--pic-ratio,4/3);border-radius:4px;overflow:hidden;position:relative;
+  box-shadow:0 0 0 3px #fff8e6,0 0 0 4.5px var(--gold-deep),0 6px 14px rgba(70,40,10,.35)}
+.pic img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.02) sepia(.06)}
+.txt{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;justify-content:center;padding-top:14px;overflow:hidden}
+.txt p{font-size:var(--fs,18px);line-height:1.62;text-align:left;hyphens:none;color:var(--ink);font-weight:500}
+.folio{flex:0 0 auto;font-family:'Hind Vadodara',sans-serif;font-weight:600;font-size:13px;color:var(--ink-soft);letter-spacing:.08em;padding-top:6px}
+.folio{display:flex;align-items:center;gap:.7em}
+.folio::before,.folio::after{content:"";width:6px;height:6px;background:var(--gold-deep);transform:rotate(45deg);margin-top:-3px;opacity:.85}
+
+/* spread: dedicated text page */
+.chapnum{font-family:'Hind Vadodara',sans-serif;font-weight:700;color:var(--red);font-size:26px;width:58px;height:58px;
+  display:grid;place-items:center;border-radius:50%;border:2px solid var(--gold-deep);
+  box-shadow:inset 0 0 0 4px var(--paper),inset 0 0 0 5px rgba(169,119,42,.6);margin:6px 0 2px;flex:0 0 auto}
+.pic.square{--pic-ratio:1/1;width:min(100%,var(--sq))}
+.flourish{color:var(--gold-deep);width:120px;height:20px;margin-top:14px;flex:0 0 auto}
+
+/* ---------- covers ---------- */
+.leather{background:
+  radial-gradient(ellipse at 40% 35%,rgba(255,170,120,.18),transparent 60%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+  linear-gradient(135deg,var(--leather),var(--leather-dark));
+  box-shadow:inset 14px 0 18px -8px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.4)}
+.face.back.leather{box-shadow:inset -14px 0 18px -8px rgba(0,0,0,.6),inset 0 0 0 1px rgba(0,0,0,.4)}
+.gild{position:absolute;inset:calc(var(--m) - 2px);border:2px solid var(--gold);border-radius:4px;
+  box-shadow:inset 0 0 0 5px transparent,inset 0 0 0 6px rgba(214,166,69,.65)}
+.cover-in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--m) + 24px);text-align:center;gap:16px}
+.tag{font-family:'Hind Vadodara',sans-serif;font-weight:600;color:var(--gold);font-size:15px;opacity:.9;display:flex;align-items:center;gap:8px}
+.tag .spark{width:11px;height:11px}
+.medal{width:min(62%,var(--sq));aspect-ratio:1;border-radius:50%;overflow:hidden;position:relative;
+  box-shadow:0 0 0 4px var(--leather-dark),0 0 0 7px var(--gold),0 0 0 9px var(--leather-dark),0 0 0 10px rgba(214,166,69,.6),0 10px 26px rgba(0,0,0,.55)}
+.medal img{width:100%;height:100%;object-fit:cover}
+.cover-title{font-family:'Hind Vadodara',sans-serif;font-weight:700;font-size:var(--title-fs,30px);line-height:1.2;
+  color:#f3c766;background:linear-gradient(180deg,#ffe39a,#d7a443 55%,#a8742a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(0,0,0,.45))}
+.hint{position:absolute;bottom:calc(var(--m) + 14px);left:0;right:0;text-align:center;font-family:'Hind Vadodara',sans-serif;font-size:13px;color:rgba(243,199,102,.75);animation:pulse 2.2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.emblem{width:70px;height:70px;color:var(--gold);opacity:.8}
+
+/* ---------- moral & end ---------- */
+.moral-in{position:absolute;inset:calc(var(--m) + 16px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.moral-head{font-family:'Hind Vadodara',sans-serif;font-weight:700;color:var(--red);font-size:30px;line-height:1}
+.lamp{width:64px;height:64px}
+.moral-box{position:relative;padding:22px 18px;border:1.5px solid var(--gold-deep);border-radius:6px;background:rgba(255,248,226,.6)}
+.moral-box::before,.moral-box::after{content:"“";position:absolute;font-family:'Hind Vadodara',sans-serif;font-weight:700;font-size:52px;color:var(--gold-deep);line-height:1;opacity:.7}
+.moral-box::before{top:-6px;left:8px}
+.moral-box::after{content:"”";bottom:-26px;right:8px}
+.moral-box p{font-size:var(--fs,21px);line-height:1.6;font-weight:600;color:var(--ink)}
+.end-word{font-family:'Hind Vadodara',sans-serif;font-weight:700;font-size:34px;color:var(--ink)}
+.btn-again{font-family:'Hind Vadodara',sans-serif;font-weight:700;font-size:17px;border:0;cursor:pointer;color:#fff7e0;
+  padding:10px 22px 8px;border-radius:999px;background:linear-gradient(180deg,#b23a25,#7c1f13);box-shadow:0 3px 0 #4f120a,0 6px 14px rgba(80,20,10,.35)}
+.btn-again{display:inline-flex;align-items:center;gap:8px}
+.btn-again .ico{width:18px;height:18px;margin-top:-2px}
+.btn-again:active{transform:translateY(2px);box-shadow:0 1px 0 #4f120a}
+
+/* ---------- controls ---------- */
+.bar{flex:0 0 auto;display:flex;align-items:center;justify-content:center;gap:18px;padding-top:12px}
+.nav{width:46px;height:46px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;color:#3b2207;
+  background:radial-gradient(circle at 35% 30%,#ffe7a8,#d6a645 55%,#9a6a22);box-shadow:0 3px 0 #5e3e12,0 6px 12px rgba(0,0,0,.4)}
+.nav:active{transform:translateY(2px);box-shadow:0 1px 0 #5e3e12}
+.nav[disabled]{opacity:.35;pointer-events:none}
+.nav svg{width:22px;height:22px}
+.count{font-family:'Hind Vadodara',sans-serif;font-weight:600;color:#f1d79c;font-size:16px;min-width:74px;text-align:center}
+</style>
+</head>
+<body>
+<div class="stage" id="stage"><div class="shift" id="shift"><div class="book" id="book"></div></div></div>
+<div class="bar">
+  <button class="nav" id="prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="count" id="count"></div>
+  <button class="nav" id="next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+</div>
+
+<script>
+/*
+ * Where the stories live.
+ *   book.html?type=pregnant&day=29  →  <baseUrl>Pregnant/29/story.json + 1.jpg … 6.jpg
+ *   book.html?type=planning&day=12  →  <baseUrl>Planning/12/story.json + 1.jpg … 6.jpg
+ * baseUrl : "stories/" (inside the app) or "https://your-cdn/stories/"
+ * version : change it after editing JSON on a CDN so phones skip the old cached copy
+ * Folder names are case-sensitive.
+ */
+window.STORY_CONFIG = {
+  "baseUrl": "stories/",
+  "jsonName": "story.json",
+  "imageExt": "jpg",
+  "version": "",
+  "collections": {
+    "planning": { "folder": "Planning", "first": 1,  "last": 84 },
+    "pregnant": { "folder": "Pregnant", "first": 29, "last": 280 }
+  }
+};
+
+/* Gujarati UI labels used by book.html, cards.html and scroll.html */
+window.STORY_UI = window.STORY_UI || {
+  storyTag: "વાર્તા",
+  part: "ભાગ",
+  start: "વાર્તા શરૂ કરીએ",
+  readAgain: "ફરી વાંચો",
+  theEnd: "સમાપ્ત",
+  tapHint: "પાનું ફેરવવા ટેપ કરો",
+  scrollHint: "નીચે સ્ક્રોલ કરો",
+  moralLabel: "બોધ",
+  loading: "વાર્તા ખૂલી રહી છે…",
+  notAvailable: "આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.",
+  networkError: "વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.",
+  retry: "ફરી પ્રયાસ કરો"
+};
+</script>
+<script>
+/*
+ * Loads the story for ?type=…&day=… and hands it to the page.
+ *   Link:   book.html?type=pregnant&day=29
+ *   App:    openStory("pregnant", 29)          page reads the JSON itself
+ *           openStory("pregnant", 29, json)    app passes the JSON (needed when files are local on the phone)
+ *   Events: window.onStoryEvent = function(name, info){}   "loaded" {collection, day, title} | "error" {code}
+ * story.json: { "title": "…", "moral": "…", "pages": ["para 1", … "para 6"] }  →  para N uses N.jpg
+ */
+(function () {
+  var C = window.STORY_CONFIG || {};
+  var UI = window.STORY_UI || {};
+  var render = null, overlay = null, token = 0, last = null;
+
+  function E(code, detail) { var e = new Error(code); e.code = code; e.detail = detail; return e; }
+
+  function findCollection(type) {
+    if (type == null) return null;
+    var cols = C.collections || {}, t = String(type).trim().toLowerCase();
+    for (var k in cols) {
+      if (k.toLowerCase() === t || String(cols[k].folder).toLowerCase() === t) return cols[k];
+    }
+    return null;
+  }
+
+  function dayFolder(col, day) {
+    var b = C.baseUrl || '';
+    if (b && b.charAt(b.length - 1) !== '/') b += '/';
+    return b + encodeURIComponent(col.folder) + '/' + day + '/';
+  }
+
+  function isAbsolute(p) { return /^([a-z][a-z0-9+.-]*:|\/)/i.test(p); }
+
+  // turn whatever the JSON contains into the shape the templates expect
+  function normalize(data, col, day) {
+    if (!data || typeof data !== 'object') throw E('notready');
+    var dir = col ? dayFolder(col, day) : '';
+    var ext = C.imageExt || 'jpg';
+    var pages = (data.pages || []).map(function (p, i) {
+      if (typeof p === 'string') p = { text: p };
+      p = p || {};
+      var img = p.square || p.image || ((i + 1) + '.' + ext);
+      if (dir && !isAbsolute(img)) img = dir + img;
+      return { square: img, text: String(p.text || '').trim() };
+    });
+    var title = String(data.title || '').trim();
+    var moral = String(data.moral || '').trim();
+    if (!title || !moral || !pages.length || pages.some(function (p) { return !p.text; })) throw E('notready');
+    return {
+      title: title,
+      moral: moral,
+      moralLabel: data.moralLabel || UI.moralLabel || 'બોધ',
+      pages: pages,
+      collection: col ? col.folder : null,
+      day: col ? day : null
+    };
+  }
+
+  // XHR rather than fetch: XHR can also read file:// when the WebView allows it
+  function getJSON(url, cb) {
+    var x = new XMLHttpRequest();
+    try { x.open('GET', url, true); } catch (e) { cb(E('network', url)); return; }
+    x.timeout = 15000;
+    x.onload = function () {
+      var ok = x.status === 200 || (x.status === 0 && x.responseText);
+      if (!ok) { cb(E(x.status === 404 ? 'notfound' : 'network', url + ' (HTTP ' + x.status + ')')); return; }
+      var json;
+      try { json = JSON.parse(x.responseText); } catch (e) { cb(E('badjson', url)); return; }
+      cb(null, json);
+    };
+    x.onerror = x.ontimeout = function () { cb(E('network', url)); };
+    x.send();
+  }
+
+  function preload(src, cb) {
+    var done = false, im = new Image();
+    function go() { if (!done) { done = true; cb(); } }
+    im.onload = im.onerror = go;
+    setTimeout(go, 4000);
+    im.src = src;
+  }
+
+  /* ---------- loading / error screen ---------- */
+  var CSS =
+    '.sl-ov{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;' +
+    'padding:24px;text-align:center;background:var(--loader-bg,#1b1230);color:var(--loader-fg,#fff);font-family:\'Hind Vadodara\',sans-serif;transition:opacity .35s}' +
+    '.sl-ov.sl-hide{opacity:0;pointer-events:none}' +
+    '.sl-spin{width:42px;height:42px;border-radius:50%;border:4px solid currentColor;border-right-color:transparent;opacity:.75;animation:slspin .9s linear infinite}' +
+    '@keyframes slspin{to{transform:rotate(360deg)}}' +
+    '.sl-ico{width:56px;height:56px;opacity:.85}' +
+    '.sl-msg{font-size:18px;font-weight:600;line-height:1.55;max-width:320px}' +
+    '.sl-btn{font-family:inherit;font-weight:700;font-size:16px;border:0;border-radius:999px;padding:10px 24px 8px;cursor:pointer;' +
+    'background:var(--loader-accent,#ffd23f);color:var(--loader-accent-fg,#3a2200)}';
+  var BOOK_ICO = '<svg class="sl-ico" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M28 14c-5-4-12-5-20-4v32c8-1 15 0 20 4 5-4 12-5 20-4V10c-8-1-15 0-20 4z"/><path d="M28 14v32"/></svg>';
+
+  function ensureOverlay() {
+    if (overlay) return overlay;
+    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    overlay = document.createElement('div'); overlay.className = 'sl-ov sl-hide';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) {
+      if (e.target.closest('[data-retry]') && last) open(last[0], last[1], last[2]);
+    });
+    return overlay;
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function showLoading() {
+    var o = ensureOverlay();
+    o.innerHTML = '<div class="sl-spin"></div><div class="sl-msg">' + esc(UI.loading || 'વાર્તા ખૂલી રહી છે…') + '</div>';
+    o.classList.remove('sl-hide');
+  }
+  function hideOverlay() { if (overlay) overlay.classList.add('sl-hide'); }
+  function fail(err) {
+    var code = err.code || 'network';
+    if (window.console) console.warn('[story] ' + code + (err.detail ? ': ' + err.detail : ''));
+    var o = ensureOverlay();
+    var msg = code === 'network' ? (UI.networkError || 'વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.')
+                                 : (UI.notAvailable || 'આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.');
+    o.innerHTML = BOOK_ICO + '<div class="sl-msg">' + esc(msg) + '</div>' +
+      (code === 'network' ? '<button class="sl-btn" data-retry>' + esc(UI.retry || 'ફરી પ્રયાસ કરો') + '</button>' : '');
+    o.classList.remove('sl-hide');
+    notify('error', { code: code });
+  }
+
+  // optional hook for the host app: window.onStoryEvent = function(name, info){…}
+  function notify(name, info) { try { if (typeof window.onStoryEvent === 'function') window.onStoryEvent(name, info || {}); } catch (e) {} }
+
+  function finish(json, col, day, my) {
+    var s;
+    try { s = normalize(json, col, day); } catch (e) { fail(e); return; }
+    preload(s.pages[0].square, function () {
+      if (my !== token) return;              // a newer request took over
+      render(s); hideOverlay();
+      notify('loaded', { collection: s.collection, day: s.day, title: s.title });
+    });
+  }
+
+  function open(type, day, data) {
+    last = [type, day, data];
+    var my = ++token;
+    var col = findCollection(type), ds = String(day == null ? '' : day).trim(), d = parseInt(ds, 10);
+    if (!col) { fail(E('notfound', 'unknown type "' + type + '"')); return; }
+    if (!/^\d+$/.test(ds) || d < col.first || d > col.last) {
+      fail(E('notfound', col.folder + ' day "' + day + '" is outside ' + col.first + '–' + col.last)); return;
+    }
+    showLoading();
+    if (data != null) {
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { fail(E('badjson', 'openStory data')); return; } }
+      finish(data, col, d, my); return;
+    }
+    var url = dayFolder(col, d) + (C.jsonName || 'story.json') + (C.version ? '?v=' + encodeURIComponent(C.version) : '');
+    getJSON(url, function (err, json) {
+      if (my !== token) return;
+      if (err) { fail(err); return; }
+      finish(json, col, d, my);
+    });
+  }
+
+  window.openStory = open;
+  window.StoryLoader = {
+    normalize: normalize,
+    start: function (renderFn) {
+      render = renderFn;
+      // the old window.renderStory(fullObject) still works and clears any loader screen
+      window.renderStory = function (d) { window.__storyRendered = true; hideOverlay(); return renderFn(d); };
+      var q = {};
+      location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+        if (!kv) return; var i = kv.indexOf('=');
+        var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), v = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+        q[k.toLowerCase()] = v;
+      });
+      if (q.type != null || q.day != null) open(q.type, q.day);
+      else if (window.STORY) render(normalize(window.STORY, null, null));
+      else if (!window.__storyRendered) setTimeout(function () {   // no day given and the app hasn't called openStory()
+        if (!token && !window.__storyRendered) fail(E('notfound', 'no ?type=&day= in the link'));
+      }, 1500);
+    }
+  };
+})();
+</script>
+<script>
+(function(){
+  var book=document.getElementById('book'), shift=document.getElementById('shift'), stage=document.getElementById('stage');
+  var countEl=document.getElementById('count'), prevBtn=document.getElementById('prev'), nextBtn=document.getElementById('next');
+  var S, UI, mode=null, sheets=[], current=0, busy=false;
+  var TURN=850;
+
+  var CORNER='<svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 24V8c0-3.3 2.7-6 6-6h16"/><path d="M6 24V11c0-2.8 2.2-5 5-5h13"/><circle cx="11" cy="11" r="2.2" fill="currentColor" stroke="none"/></svg>';
+  var FLOURISH='<svg viewBox="0 0 120 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 10h38M78 10h38"/><path d="M60 3c-6 0-9 7-15 7 6 0 9 7 15 7 6 0 9-7 15-7-6 0-9-7-15-7z" fill="currentColor" fill-opacity=".25"/><circle cx="60" cy="10" r="2" fill="currentColor"/></svg>';
+  var EMBLEM='<svg viewBox="0 0 70 70" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="35" cy="35" r="30"/><circle cx="35" cy="35" r="24" stroke-dasharray="2 4"/><path d="M35 14l5 14h15l-12 9 5 15-13-9-13 9 5-15-12-9h15z" fill="currentColor" fill-opacity=".3"/></svg>';
+  var LAMP='<svg viewBox="0 0 64 64"><defs><radialGradient id="fl" cx=".5" cy=".7" r=".6"><stop offset="0" stop-color="#fff3b0"/><stop offset=".5" stop-color="#ffb02e"/><stop offset="1" stop-color="#e2541b"/></radialGradient></defs><circle cx="32" cy="22" r="16" fill="#ffc94a" opacity=".25"/><path d="M32 8c5 7 7 11 7 15a7 7 0 0 1-14 0c0-4 2-8 7-15z" fill="url(#fl)"/><path d="M10 38h44c-2 9-10 15-22 15S12 47 10 38z" fill="#b8641f"/><path d="M10 38h44" stroke="#7a3c10" stroke-width="2"/><path d="M22 53h20l-3 5H25z" fill="#8f4a14"/></svg>';
+
+  var SPARK='<svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>';
+  var AGAIN='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 3v5h5"/></svg>';
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML}
+  function deco(){return '<div class="frame"></div><span class="corner tl">'+CORNER+'</span><span class="corner tr">'+CORNER+'</span><span class="corner bl">'+CORNER+'</span><span class="corner br">'+CORNER+'</span>'}
+
+  function coverHTML(){
+    return '<div class="face front leather"><div class="gild"></div><div class="cover-in">'+
+      '<div class="tag">'+SPARK+esc(UI.storyTag)+SPARK+'</div>'+
+      '<div class="medal"><img src="'+esc(S.pages[0].square)+'" alt=""></div>'+
+      '<h1 class="cover-title">'+esc(S.title)+'</h1></div>'+
+      '<div class="hint">'+esc(UI.tapHint)+' ›</div></div>';
+  }
+  function backCoverHTML(side){
+    return '<div class="face '+side+' leather"><div class="gild"></div><div class="cover-in"><div class="emblem">'+EMBLEM+'</div></div></div>';
+  }
+  function comboPage(i){ // single mode: image + text on one page
+    var p=S.pages[i];
+    return '<div class="face front paper right">'+deco()+'<div class="content">'+
+      '<div class="pic"><img src="'+esc(p.square)+'" alt=""></div>'+
+      '<div class="txt"><p>'+esc(p.text)+'</p></div>'+
+      '<div class="folio">'+(i+1)+'</div></div></div>';
+  }
+  function imagePage(i,side){ // spread mode left page
+    var p=S.pages[i];
+    return '<div class="face '+side+' paper left">'+deco()+'<div class="content" style="justify-content:center">'+
+      '<div class="pic square"><img src="'+esc(p.square)+'" alt=""></div>'+
+      '<div class="flourish">'+FLOURISH+'</div></div></div>';
+  }
+  function textPage(i){ // spread mode right page
+    var p=S.pages[i];
+    return '<div class="face front paper right">'+deco()+'<div class="content">'+
+      '<div class="chapnum">'+(i+1)+'</div>'+
+      '<div class="txt"><p>'+esc(p.text)+'</p></div>'+
+      '<div class="folio">'+(i+1)+' / '+(S.pages.length)+'</div></div></div>';
+  }
+  function moralPage(side,cls){
+    return '<div class="face '+side+' paper '+cls+'">'+deco()+'<div class="moral-in">'+
+      '<div class="lamp">'+LAMP+'</div>'+
+      '<div class="moral-head">'+esc(S.moralLabel||'બોધ')+'</div>'+
+      '<div class="flourish">'+FLOURISH+'</div>'+
+      '<div class="moral-box"><p>'+esc(S.moral)+'</p></div></div></div>';
+  }
+  function endPage(){
+    return '<div class="face front paper right">'+deco()+'<div class="moral-in">'+
+      '<div class="flourish">'+FLOURISH+'</div>'+
+      '<div class="end-word">'+esc(UI.theEnd)+'</div>'+
+      '<div class="flourish" style="transform:scaleY(-1)">'+FLOURISH+'</div>'+
+      '<button class="btn-again" data-again>'+AGAIN+esc(UI.readAgain)+'</button></div></div>';
+  }
+  var BLANK='<div class="face back paper blank left"></div>';
+
+  function buildSheets(){
+    var n=S.pages.length, out=[];
+    if(mode==='single'){
+      out.push(coverHTML()+BLANK);
+      for(var i=0;i<n;i++) out.push(comboPage(i)+BLANK);
+      out.push(moralPage('front','right')+BLANK);
+      out.push(endPage()+BLANK);
+    }else{
+      out.push(coverHTML()+imagePage(0,'back'));
+      for(var j=0;j<n;j++) out.push(textPage(j)+(j<n-1?imagePage(j+1,'back'):moralPage('back','left')));
+      out.push(endPage()+backCoverHTML('back'));
+    }
+    return out;
+  }
+  function maxCurrent(){return mode==='single'?sheets.length-1:sheets.length}
+
+  function layout(){
+    var r=stage.getBoundingClientRect(), W=r.width-8, H=r.height-24;
+    var newMode=(W/H>1.15 && W>=600)?'spread':'single';
+    var pw,ph;
+    if(newMode==='single'){ pw=Math.min(W,560); ph=Math.min(H,pw/0.58); pw=Math.min(pw,ph*0.8); }
+    else{ pw=Math.min(W/2,H*0.74); ph=pw/0.74; }
+    pw=Math.floor(pw); ph=Math.floor(ph);
+    var m=Math.max(12,Math.round(pw*0.045));
+    book.style.setProperty('--pw',pw+'px'); book.style.setProperty('--ph',ph+'px'); book.style.setProperty('--m',m+'px');
+    book.style.setProperty('--sq',Math.round(Math.min(pw-2*m-40,ph*0.62))+'px');
+    book.style.setProperty('--title-fs',Math.round(Math.max(24,Math.min(40,pw*0.085)))+'px');
+    book.style.width=(newMode==='single'?pw:pw*2)+'px'; book.style.height=ph+'px';
+    if(newMode!==mode){ mode=newMode; document.body.className=mode; render(); }
+    fitAll(); apply(false);
+  }
+
+  function render(){
+    book.innerHTML='';
+    sheets=buildSheets().map(function(html){
+      var el=document.createElement('div'); el.className='sheet'; el.innerHTML=html; book.appendChild(el); return el;
+    });
+    current=Math.min(current,maxCurrent());
+  }
+
+  // shrink paragraph text until it fits its box
+  function fitAll(){
+    var boxes=book.querySelectorAll('.txt, .moral-in');
+    for(var i=0;i<boxes.length;i++){
+      var box=boxes[i], p=box.querySelector('p'); if(!p) continue;
+      var isMoral=box.classList.contains('moral-in');
+      var pw=parseFloat(book.style.getPropertyValue('--pw'));
+      var fs=isMoral?Math.min(25,pw*0.064):(mode==='spread'?Math.min(24,pw*0.06):Math.min(22,pw*0.062));
+      fs=Math.max(fs,15);
+      p.style.setProperty('--fs',fs+'px');
+      box.style.justifyContent='flex-start'; // so overflow is measurable
+      var guard=0;
+      while(box.scrollHeight>box.clientHeight+1 && fs>12 && guard++<40){ fs-=0.5; p.style.setProperty('--fs',fs+'px'); }
+      box.style.justifyContent='';
+    }
+  }
+
+  function apply(animate, moving){
+    var N=sheets.length;
+    sheets.forEach(function(el,i){
+      var f=i<current;
+      if(!animate) el.style.transition='none';
+      el.classList.toggle('flipped',f);
+      el.style.zIndex=(i===moving)?3*N:(f?N+i:N-i);
+      if(!animate){ el.offsetWidth; el.style.transition=''; }
+    });
+    // centre a closed book (front or back cover) in spread mode
+    var tx=0;
+    if(mode==='spread'){ if(current===0) tx=-25; else if(current===N) tx=25; }
+    if(!animate) shift.style.transition='none';
+    shift.style.transform='translateX('+tx+'%)';
+    if(!animate){ shift.offsetWidth; shift.style.transition=''; }
+    // counter
+    var n=S.pages.length, label;
+    if(current===0) label=UI.storyTag;
+    else label=current<=n?current+' / '+n:(current===n+1?(S.moralLabel||'બોધ'):UI.theEnd);
+    countEl.textContent=label;
+    prevBtn.disabled=current===0; nextBtn.disabled=current>=maxCurrent();
+  }
+
+  function go(dir){
+    if(busy) return;
+    var target=current+dir; if(target<0||target>maxCurrent()) return;
+    busy=true;
+    var moving=dir>0?current:current-1, el=sheets[moving];
+    current=target;
+    el.classList.add('turning');
+    apply(true,moving);
+    setTimeout(function(){ el.classList.remove('turning'); apply(true); busy=false; },TURN);
+  }
+  function goTo(n){ current=n; apply(false); }
+
+  // input: tap left/right half, swipe, keys
+  var sx=0,sy=0,st=0,down=false;
+  stage.addEventListener('pointerdown',function(e){down=true;sx=e.clientX;sy=e.clientY;st=Date.now()});
+  stage.addEventListener('pointerup',function(e){
+    if(!down) return; down=false;
+    if(e.target.closest('[data-again]')) return;
+    var dx=e.clientX-sx, dy=e.clientY-sy;
+    if(Math.abs(dx)>40 && Math.abs(dx)>Math.abs(dy)) { go(dx<0?1:-1); return; }
+    if(Math.abs(dx)<10 && Math.abs(dy)<10){
+      var r=stage.getBoundingClientRect(); go(e.clientX>r.left+r.width/2?1:-1);
+    }
+  });
+  book.addEventListener('click',function(e){ if(e.target.closest('[data-again]')){ e.stopPropagation(); goTo(0);} });
+  prevBtn.onclick=function(){go(-1)}; nextBtn.onclick=function(){go(1)};
+  document.addEventListener('keydown',function(e){ if(e.key==='ArrowRight')go(1); if(e.key==='ArrowLeft')go(-1); });
+  var rt; window.addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){if(S)layout()},120)});
+
+  // public API for the host app: window.renderStory(storyObject)
+  window.renderStory=function(data){ if(data) window.STORY=data; S=window.STORY; UI=window.STORY_UI; current=0; mode=null; layout(); };
+  StoryLoader.start(window.renderStory);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){fitAll()});
+  window.addEventListener('load',fitAll);
+})();
+</script>
+</body>
+</html>

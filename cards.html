@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="gu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Story Cards</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{--loader-bg:#1b1230;--loader-fg:#fff;--loader-accent:#ffd23f;--loader-accent-fg:#3a2200;--ink:#2a1d3a;--cream:#fffaf0;--sheet-r:30px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;background:#1b1230}
+body{font-family:'Hind Vadodara',sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.deck{position:fixed;inset:0;overflow:hidden}
+
+/* progress segments */
+.progress{position:absolute;z-index:20;left:0;right:0;top:0;display:flex;gap:5px;
+  padding:calc(env(safe-area-inset-top) + 10px) 14px 0;transition:opacity .3s}
+.progress.hide{opacity:0}
+.seg{flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,.35);overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.seg i{display:block;height:100%;width:0;background:#fff;border-radius:4px;transition:width .45s ease}
+.seg.done i{width:100%}
+
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--bg,#fff3dc);
+  transform:translateX(100%);visibility:hidden;transition:transform .5s cubic-bezier(.22,.8,.3,1),visibility 0s .5s}
+.slide.active{transform:none;visibility:visible;transition:transform .5s cubic-bezier(.22,.8,.3,1),visibility 0s}
+.slide.past{transform:translateX(-28%) scale(.94);visibility:hidden}
+.slide.active.from-left{animation:fromLeft .5s cubic-bezier(.22,.8,.3,1)}
+@keyframes fromLeft{from{transform:translateX(-28%) scale(.94)}}
+
+/* story slide */
+.art{position:relative;flex:0 0 auto;height:var(--art-h,56%);overflow:hidden}
+.art img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.12)}
+.active .art img{animation:kb 9s ease-out forwards}
+@keyframes kb{from{transform:scale(1.12) translate(1.5%,1%)}to{transform:scale(1.02) translate(0,0)}}
+.art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35),transparent 22%)}
+.sheet{position:relative;flex:1;min-height:0;margin-top:calc(var(--sheet-r) * -1);background:var(--cream);
+  border-radius:var(--sheet-r) var(--sheet-r) 0 0;padding:26px 22px calc(env(safe-area-inset-bottom) + 64px);
+  overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 -8px 24px rgba(0,0,0,.12)}
+.sheet::before{ /* colourful blob */
+  content:"";position:absolute;right:-60px;top:-40px;width:200px;height:200px;border-radius:50%;background:var(--accent);opacity:.12;pointer-events:none}
+.chip{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:14px;color:#fff;background:var(--accent);
+  padding:5px 14px 3px;border-radius:999px;box-shadow:0 3px 0 var(--accent-d)}
+.chip b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.28);font-size:13px;margin-left:-6px}
+.sheet p{margin-top:16px;font-size:var(--fs,19px);line-height:1.68;font-weight:500;color:var(--ink)}
+.active .chip{animation:pop .5s .15s both cubic-bezier(.3,1.6,.5,1)}
+.active .sheet p{animation:rise .6s .2s both ease-out}
+@keyframes pop{from{transform:scale(.4);opacity:0}}
+@keyframes rise{from{transform:translateY(18px);opacity:0}}
+
+/* intro */
+.intro{background:#1b1230}
+.intro .bg{position:absolute;inset:0}
+.intro .bg img{width:100%;height:100%;object-fit:cover;animation:kb 14s ease-out forwards}
+.intro .bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(27,18,48,.1) 25%,rgba(27,18,48,.75) 62%,#1b1230 92%)}
+.intro-in{position:absolute;left:0;right:0;bottom:0;padding:0 26px calc(env(safe-area-inset-bottom) + 40px);text-align:center;color:#fff}
+.badge{display:inline-block;font-weight:700;font-size:15px;background:#ffb627;color:#3a2200;padding:4px 14px 2px;border-radius:999px;transform:rotate(-3deg);box-shadow:0 3px 0 #c27c00}
+.intro h1{font-weight:700;font-size:clamp(32px,9.5vw,52px);line-height:1.15;margin:14px 0 22px;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+.go{font-family:inherit;font-weight:700;font-size:19px;border:0;cursor:pointer;color:#3a2200;background:#ffd23f;
+  padding:13px 30px 10px;border-radius:999px;box-shadow:0 5px 0 #d19a00,0 10px 24px rgba(0,0,0,.35);display:inline-flex;align-items:center;gap:10px}
+.go:active{transform:translateY(3px);box-shadow:0 2px 0 #d19a00}
+.go svg{width:20px;height:20px}
+.active .go{animation:bob 2s 1s infinite ease-in-out}
+@keyframes bob{50%{transform:translateY(-4px)}}
+
+/* moral */
+.moral{background:radial-gradient(circle at 50% 30%,#ffe27a,#ffb238 45%,#ff7a3d 100%);align-items:center;justify-content:center;text-align:center;
+  padding:calc(env(safe-area-inset-top) + 40px) 22px calc(env(safe-area-inset-bottom) + 30px)}
+.bulb{width:96px;height:96px;filter:drop-shadow(0 6px 10px rgba(150,60,0,.35))}
+.active .bulb{animation:wiggle 1s .3s both}
+@keyframes wiggle{0%{transform:scale(.3) rotate(-20deg);opacity:0}60%{transform:scale(1.1) rotate(8deg);opacity:1}100%{transform:none}}
+.moral h2{font-weight:700;font-size:38px;color:#5a1a00;line-height:1;margin:8px 0 16px}
+.moral-card{background:#fffaf0;border-radius:24px;padding:24px 22px 20px;max-width:520px;box-shadow:0 8px 0 rgba(140,50,0,.25),0 18px 40px rgba(120,40,0,.25);position:relative}
+.moral-card p{font-size:var(--fs,21px);line-height:1.6;font-weight:700;color:#4a1d00}
+.active .moral-card{animation:rise .6s .35s both ease-out}
+.again{margin-top:26px;font-family:inherit;font-weight:700;font-size:17px;border:0;cursor:pointer;color:#fff;background:#5a1a00;
+  padding:11px 24px 8px;border-radius:999px;box-shadow:0 4px 0 #2e0d00}
+.again{display:inline-flex;align-items:center;gap:8px}
+.again .ico{width:18px;height:18px;margin-top:-2px}
+.again:active{transform:translateY(3px);box-shadow:0 1px 0 #2e0d00}
+.spark{position:absolute;color:#fff;opacity:.8;pointer-events:none;animation:tw 2.4s infinite ease-in-out}
+@keyframes tw{50%{transform:scale(.5) rotate(45deg);opacity:.2}}
+
+/* side arrows (visible on bigger screens) */
+.arrow{position:absolute;z-index:15;top:50%;width:46px;height:46px;margin-top:-23px;border-radius:50%;border:0;background:rgba(255,255,255,.9);
+  box-shadow:0 4px 14px rgba(0,0,0,.25);display:none;place-items:center;cursor:pointer;color:var(--ink)}
+.arrow svg{width:22px;height:22px}
+.arrow.l{left:16px}.arrow.r{right:16px}
+.arrow[hidden]{display:none!important}
+
+/* tablet / landscape: image left, text right */
+@media (min-aspect-ratio:1/1) and (min-width:640px){
+  .slide.story{flex-direction:row}
+  .story .art{height:100%;width:52%}
+  .story .sheet{margin:0 0 0 calc(var(--sheet-r) * -1);border-radius:var(--sheet-r) 0 0 var(--sheet-r);
+    padding:calc(env(safe-area-inset-top) + 48px) 84px 40px 44px;display:flex;flex-direction:column;justify-content:center}
+  .story .chip{align-self:flex-start}
+  .progress{right:50%}
+  .arrow{display:grid}
+  .intro-in{max-width:640px;margin:0 auto}
+}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+  <div class="progress" id="progress"></div>
+  <button class="arrow l" id="al" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <button class="arrow r" id="ar" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+</div>
+
+<script>
+/*
+ * Where the stories live.
+ *   book.html?type=pregnant&day=29  →  <baseUrl>Pregnant/29/story.json + 1.jpg … 6.jpg
+ *   book.html?type=planning&day=12  →  <baseUrl>Planning/12/story.json + 1.jpg … 6.jpg
+ * baseUrl : "stories/" (inside the app) or "https://your-cdn/stories/"
+ * version : change it after editing JSON on a CDN so phones skip the old cached copy
+ * Folder names are case-sensitive.
+ */
+window.STORY_CONFIG = {
+  "baseUrl": "stories/",
+  "jsonName": "story.json",
+  "imageExt": "jpg",
+  "version": "",
+  "collections": {
+    "planning": { "folder": "Planning", "first": 1,  "last": 84 },
+    "pregnant": { "folder": "Pregnant", "first": 29, "last": 280 }
+  }
+};
+
+/* Gujarati UI labels used by book.html, cards.html and scroll.html */
+window.STORY_UI = window.STORY_UI || {
+  storyTag: "વાર્તા",
+  part: "ભાગ",
+  start: "વાર્તા શરૂ કરીએ",
+  readAgain: "ફરી વાંચો",
+  theEnd: "સમાપ્ત",
+  tapHint: "પાનું ફેરવવા ટેપ કરો",
+  scrollHint: "નીચે સ્ક્રોલ કરો",
+  moralLabel: "બોધ",
+  loading: "વાર્તા ખૂલી રહી છે…",
+  notAvailable: "આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.",
+  networkError: "વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.",
+  retry: "ફરી પ્રયાસ કરો"
+};
+</script>
+<script>
+/*
+ * Loads the story for ?type=…&day=… and hands it to the page.
+ *   Link:   book.html?type=pregnant&day=29
+ *   App:    openStory("pregnant", 29)          page reads the JSON itself
+ *           openStory("pregnant", 29, json)    app passes the JSON (needed when files are local on the phone)
+ *   Events: window.onStoryEvent = function(name, info){}   "loaded" {collection, day, title} | "error" {code}
+ * story.json: { "title": "…", "moral": "…", "pages": ["para 1", … "para 6"] }  →  para N uses N.jpg
+ */
+(function () {
+  var C = window.STORY_CONFIG || {};
+  var UI = window.STORY_UI || {};
+  var render = null, overlay = null, token = 0, last = null;
+
+  function E(code, detail) { var e = new Error(code); e.code = code; e.detail = detail; return e; }
+
+  function findCollection(type) {
+    if (type == null) return null;
+    var cols = C.collections || {}, t = String(type).trim().toLowerCase();
+    for (var k in cols) {
+      if (k.toLowerCase() === t || String(cols[k].folder).toLowerCase() === t) return cols[k];
+    }
+    return null;
+  }
+
+  function dayFolder(col, day) {
+    var b = C.baseUrl || '';
+    if (b && b.charAt(b.length - 1) !== '/') b += '/';
+    return b + encodeURIComponent(col.folder) + '/' + day + '/';
+  }
+
+  function isAbsolute(p) { return /^([a-z][a-z0-9+.-]*:|\/)/i.test(p); }
+
+  // turn whatever the JSON contains into the shape the templates expect
+  function normalize(data, col, day) {
+    if (!data || typeof data !== 'object') throw E('notready');
+    var dir = col ? dayFolder(col, day) : '';
+    var ext = C.imageExt || 'jpg';
+    var pages = (data.pages || []).map(function (p, i) {
+      if (typeof p === 'string') p = { text: p };
+      p = p || {};
+      var img = p.square || p.image || ((i + 1) + '.' + ext);
+      if (dir && !isAbsolute(img)) img = dir + img;
+      return { square: img, text: String(p.text || '').trim() };
+    });
+    var title = String(data.title || '').trim();
+    var moral = String(data.moral || '').trim();
+    if (!title || !moral || !pages.length || pages.some(function (p) { return !p.text; })) throw E('notready');
+    return {
+      title: title,
+      moral: moral,
+      moralLabel: data.moralLabel || UI.moralLabel || 'બોધ',
+      pages: pages,
+      collection: col ? col.folder : null,
+      day: col ? day : null
+    };
+  }
+
+  // XHR rather than fetch: XHR can also read file:// when the WebView allows it
+  function getJSON(url, cb) {
+    var x = new XMLHttpRequest();
+    try { x.open('GET', url, true); } catch (e) { cb(E('network', url)); return; }
+    x.timeout = 15000;
+    x.onload = function () {
+      var ok = x.status === 200 || (x.status === 0 && x.responseText);
+      if (!ok) { cb(E(x.status === 404 ? 'notfound' : 'network', url + ' (HTTP ' + x.status + ')')); return; }
+      var json;
+      try { json = JSON.parse(x.responseText); } catch (e) { cb(E('badjson', url)); return; }
+      cb(null, json);
+    };
+    x.onerror = x.ontimeout = function () { cb(E('network', url)); };
+    x.send();
+  }
+
+  function preload(src, cb) {
+    var done = false, im = new Image();
+    function go() { if (!done) { done = true; cb(); } }
+    im.onload = im.onerror = go;
+    setTimeout(go, 4000);
+    im.src = src;
+  }
+
+  /* ---------- loading / error screen ---------- */
+  var CSS =
+    '.sl-ov{position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;' +
+    'padding:24px;text-align:center;background:var(--loader-bg,#1b1230);color:var(--loader-fg,#fff);font-family:\'Hind Vadodara\',sans-serif;transition:opacity .35s}' +
+    '.sl-ov.sl-hide{opacity:0;pointer-events:none}' +
+    '.sl-spin{width:42px;height:42px;border-radius:50%;border:4px solid currentColor;border-right-color:transparent;opacity:.75;animation:slspin .9s linear infinite}' +
+    '@keyframes slspin{to{transform:rotate(360deg)}}' +
+    '.sl-ico{width:56px;height:56px;opacity:.85}' +
+    '.sl-msg{font-size:18px;font-weight:600;line-height:1.55;max-width:320px}' +
+    '.sl-btn{font-family:inherit;font-weight:700;font-size:16px;border:0;border-radius:999px;padding:10px 24px 8px;cursor:pointer;' +
+    'background:var(--loader-accent,#ffd23f);color:var(--loader-accent-fg,#3a2200)}';
+  var BOOK_ICO = '<svg class="sl-ico" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M28 14c-5-4-12-5-20-4v32c8-1 15 0 20 4 5-4 12-5 20-4V10c-8-1-15 0-20 4z"/><path d="M28 14v32"/></svg>';
+
+  function ensureOverlay() {
+    if (overlay) return overlay;
+    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    overlay = document.createElement('div'); overlay.className = 'sl-ov sl-hide';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', function (e) {
+      if (e.target.closest('[data-retry]') && last) open(last[0], last[1], last[2]);
+    });
+    return overlay;
+  }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+  function showLoading() {
+    var o = ensureOverlay();
+    o.innerHTML = '<div class="sl-spin"></div><div class="sl-msg">' + esc(UI.loading || 'વાર્તા ખૂલી રહી છે…') + '</div>';
+    o.classList.remove('sl-hide');
+  }
+  function hideOverlay() { if (overlay) overlay.classList.add('sl-hide'); }
+  function fail(err) {
+    var code = err.code || 'network';
+    if (window.console) console.warn('[story] ' + code + (err.detail ? ': ' + err.detail : ''));
+    var o = ensureOverlay();
+    var msg = code === 'network' ? (UI.networkError || 'વાર્તા લોડ થઈ શકી નથી. ઇન્ટરનેટ કનેક્શન તપાસો અને ફરી પ્રયાસ કરો.')
+                                 : (UI.notAvailable || 'આ દિવસની વાર્તા હજી ઉપલબ્ધ નથી.');
+    o.innerHTML = BOOK_ICO + '<div class="sl-msg">' + esc(msg) + '</div>' +
+      (code === 'network' ? '<button class="sl-btn" data-retry>' + esc(UI.retry || 'ફરી પ્રયાસ કરો') + '</button>' : '');
+    o.classList.remove('sl-hide');
+    notify('error', { code: code });
+  }
+
+  // optional hook for the host app: window.onStoryEvent = function(name, info){…}
+  function notify(name, info) { try { if (typeof window.onStoryEvent === 'function') window.onStoryEvent(name, info || {}); } catch (e) {} }
+
+  function finish(json, col, day, my) {
+    var s;
+    try { s = normalize(json, col, day); } catch (e) { fail(e); return; }
+    preload(s.pages[0].square, function () {
+      if (my !== token) return;              // a newer request took over
+      render(s); hideOverlay();
+      notify('loaded', { collection: s.collection, day: s.day, title: s.title });
+    });
+  }
+
+  function open(type, day, data) {
+    last = [type, day, data];
+    var my = ++token;
+    var col = findCollection(type), ds = String(day == null ? '' : day).trim(), d = parseInt(ds, 10);
+    if (!col) { fail(E('notfound', 'unknown type "' + type + '"')); return; }
+    if (!/^\d+$/.test(ds) || d < col.first || d > col.last) {
+      fail(E('notfound', col.folder + ' day "' + day + '" is outside ' + col.first + '–' + col.last)); return;
+    }
+    showLoading();
+    if (data != null) {
+      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { fail(E('badjson', 'openStory data')); return; } }
+      finish(data, col, d, my); return;
+    }
+    var url = dayFolder(col, d) + (C.jsonName || 'story.json') + (C.version ? '?v=' + encodeURIComponent(C.version) : '');
+    getJSON(url, function (err, json) {
+      if (my !== token) return;
+      if (err) { fail(err); return; }
+      finish(json, col, d, my);
+    });
+  }
+
+  window.openStory = open;
+  window.StoryLoader = {
+    normalize: normalize,
+    start: function (renderFn) {
+      render = renderFn;
+      // the old window.renderStory(fullObject) still works and clears any loader screen
+      window.renderStory = function (d) { window.__storyRendered = true; hideOverlay(); return renderFn(d); };
+      var q = {};
+      location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+        if (!kv) return; var i = kv.indexOf('=');
+        var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), v = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+        q[k.toLowerCase()] = v;
+      });
+      if (q.type != null || q.day != null) open(q.type, q.day);
+      else if (window.STORY) render(normalize(window.STORY, null, null));
+      else if (!window.__storyRendered) setTimeout(function () {   // no day given and the app hasn't called openStory()
+        if (!token && !window.__storyRendered) fail(E('notfound', 'no ?type=&day= in the link'));
+      }, 1500);
+    }
+  };
+})();
+</script>
+<script>
+(function(){
+  var deck=document.getElementById('deck'), prog=document.getElementById('progress');
+  var al=document.getElementById('al'), ar=document.getElementById('ar');
+  var slides=[], segs=[], idx=0, S, UI;
+  // bright, kid-friendly palette per page: [sheet tint, accent, accent shadow]
+  var THEMES=[['#fff1d6','#ff8a00','#c45f00'],['#e3f6f3','#13a89e','#0b766f'],['#fde7ef','#e84a7f','#b02a5a'],
+              ['#ecf6dc','#5aa832','#3d7a1d'],['#e3eefc','#2f7de1','#1d56a3'],['#efe6fb','#8a4fd8','#6230a6']];
+  var ARROW='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  var BULB='<svg viewBox="0 0 96 96"><circle cx="48" cy="40" r="30" fill="#fff6c2"/><path d="M48 14a26 26 0 0 0-15 47c3 2 5 6 5 9v4h20v-4c0-3 2-7 5-9a26 26 0 0 0-15-47z" fill="#ffd23f" stroke="#7a3b00" stroke-width="3.5"/><path d="M40 52l8-10 8 10M48 42v28" fill="none" stroke="#7a3b00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="37" y="74" width="22" height="9" rx="3" fill="#7a3b00"/><path d="M48 4v-0M14 18l5 5M82 18l-5 5M4 42h6M92 42h-6" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg>';
+  var AGAIN='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 3v5h5"/></svg>';
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML}
+
+  function build(){
+    slides.forEach(function(s){s.remove()}); slides=[]; prog.innerHTML=''; segs=[];
+    var n=S.pages.length;
+    // intro
+    add('<div class="bg"><img src="'+esc(S.pages[0].square)+'" alt=""></div><div class="intro-in">'+
+      '<span class="badge">'+esc(UI.storyTag)+'</span><h1>'+esc(S.title)+'</h1>'+
+      '<button class="go" data-next>'+esc(UI.start)+' '+ARROW+'</button></div>','intro');
+    S.pages.forEach(function(p,i){
+      var t=THEMES[i%THEMES.length];
+      var el=add('<div class="art"><img src="'+esc(p.square)+'" alt="" loading="'+(i<2?'eager':'lazy')+'"></div>'+
+        '<div class="sheet"><span class="chip"><b>'+(i+1)+'</b>'+esc(UI.part)+' '+(i+1)+' / '+(n)+'</span>'+
+        '<p>'+esc(p.text)+'</p></div>','story');
+      el.style.setProperty('--bg',t[0]); el.style.setProperty('--accent',t[1]); el.style.setProperty('--accent-d',t[2]);
+    });
+    var sparks='';
+    [[12,18,22],[82,14,16],[8,70,14],[88,62,24],[70,86,12],[24,88,18]].forEach(function(s,k){
+      sparks+='<svg class="spark" style="left:'+s[0]+'%;top:'+s[1]+'%;width:'+s[2]+'px;animation-delay:'+(k*.4)+'s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0l3 9 9 3-9 3-3 9-3-9-9-3 9-3z"/></svg>';
+    });
+    add(sparks+'<div class="bulb">'+BULB+'</div><h2>'+esc(S.moralLabel||'બોધ')+'</h2>'+
+      '<div class="moral-card"><p>'+esc(S.moral)+'</p></div>'+
+      '<button class="again" data-again>'+AGAIN+esc(UI.readAgain)+'</button>','moral');
+    for(var k=0;k<n+1;k++){var s=document.createElement('div');s.className='seg';s.innerHTML='<i></i>';prog.appendChild(s);segs.push(s)}
+    idx=0; show(0,1);
+  }
+  function add(html,cls){var el=document.createElement('section');el.className='slide '+cls;el.innerHTML=html;deck.insertBefore(el,al);slides.push(el);return el}
+
+  function show(i,dir){
+    if(i<0||i>=slides.length) return;
+    slides.forEach(function(s,k){
+      s.classList.remove('from-left');
+      s.classList.toggle('active',k===i); s.classList.toggle('past',k<i);
+    });
+    if(dir<0) slides[i].classList.add('from-left');
+    // restart entrance animations
+    var a=slides[i]; a.style.animation='none'; a.offsetWidth; a.style.animation='';
+    a.querySelectorAll('img,.chip,p,.go,.bulb,.moral-card').forEach(function(e){e.style.animation='none';e.offsetWidth;e.style.animation=''});
+    var sh=a.querySelector('.sheet'); if(sh) sh.scrollTop=0;
+    idx=i;
+    prog.classList.toggle('hide',i===0);
+    segs.forEach(function(s,k){s.classList.toggle('done',k<i)});
+    al.hidden=i===0; ar.hidden=i>=slides.length-1;
+    fit(a);
+  }
+  // shrink text if it would need scrolling (still scrollable as a fallback)
+  function fit(slide){
+    var box=slide.querySelector('.sheet')||slide.querySelector('.moral-card'); if(!box) return;
+    var p=box.querySelector('p'), w=window.innerWidth;
+    var fs=slide.classList.contains('moral')?Math.min(24,Math.max(18,w*0.055)):Math.min(22,Math.max(16,w*0.05));
+    p.style.setProperty('--fs',fs+'px');
+    if(!slide.classList.contains('story')) return;
+    var g=0; while(box.scrollHeight>box.clientHeight+1 && fs>15 && g++<20){fs-=.5;p.style.setProperty('--fs',fs+'px')}
+  }
+  function next(){show(idx+1,1)} function prev(){show(idx-1,-1)}
+
+  // gestures: tap right 65% = next, left 35% = back; horizontal swipe
+  var sx,sy,down=false;
+  deck.addEventListener('pointerdown',function(e){down=true;sx=e.clientX;sy=e.clientY});
+  deck.addEventListener('pointerup',function(e){
+    if(!down) return; down=false;
+    if(e.target.closest('button')) return;
+    var dx=e.clientX-sx, dy=e.clientY-sy;
+    if(Math.abs(dx)>45 && Math.abs(dx)>Math.abs(dy)*1.2){ dx<0?next():prev(); return; }
+    if(Math.abs(dx)<10 && Math.abs(dy)<10){ e.clientX<window.innerWidth*0.35?prev():next(); }
+  });
+  deck.addEventListener('click',function(e){
+    if(e.target.closest('[data-next]')) next();
+    else if(e.target.closest('[data-again]')) show(0,-1);
+  });
+  al.onclick=prev; ar.onclick=next;
+  document.addEventListener('keydown',function(e){if(e.key==='ArrowRight')next();if(e.key==='ArrowLeft')prev()});
+  window.addEventListener('resize',function(){if(slides[idx])fit(slides[idx])});
+
+  window.renderStory=function(data){ if(data) window.STORY=data; S=window.STORY; UI=window.STORY_UI; build(); };
+  StoryLoader.start(window.renderStory);
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){if(slides[idx])fit(slides[idx])});
+})();
+</script>
+</body>
+</html>
